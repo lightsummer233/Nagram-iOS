@@ -83,3 +83,9 @@ xcode-files
 /buildbox/*
 **/node_modules/
 tools/sim-watcher/dist/
+myconfig.json
+telegram-bazel-cache/
+.claude/
+local.bazelrc
+bazel-Nagram-ios
+bazel-Nagram-ios/*

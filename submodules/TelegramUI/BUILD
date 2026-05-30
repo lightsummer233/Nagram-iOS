@@ -67,6 +67,8 @@ swift_library(
         "//submodules/GZip:GZip",
         "//submodules/TelegramCallsUI:TelegramCallsUI",
         "//submodules/TelegramUIPreferences:TelegramUIPreferences",
+        # MARK: NAGRAM — Nagram 增强开关模块
+        "//Nagram/Settings:NagramSettings",
         "//submodules/MediaPlayer:UniversalMediaPlayer",
         "//submodules/TelegramVoip:TelegramVoip",
         "//submodules/DeviceAccess:DeviceAccess",

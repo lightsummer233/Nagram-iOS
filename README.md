@@ -1,3 +1,124 @@
+# Nagram-iOS
+
+> 基于 [Telegram-iOS](https://github.com/TelegramMessenger/Telegram-iOS) 官方源码的第三方增强分支,对标 Android 端 [Nagram](https://github.com/NextAlone/Nagram),面向中文用户做功能增强与隐私强化。
+
+## 项目说明
+
+所有增强改动集中在仓库根的 `Nagram/` 目录(following upstream `SG*` naming convention),需要侵入上游的改动一律加锚注释 `// MARK: NAGRAM`,便于跟随上游同步。设置入口为「我的资料」下方的独立分组「Nagram」。
+
+## 已实现功能
+
+| 功能 | 说明 |
+|---|---|
+| 增强设置入口 | 设置页「我的资料」下方独立分组,进入 Nagram 设置页 |
+| 强制复制(force-copy) | 在开启内容保护(禁止复制/转发)的对话中仍可复制消息文本,默认关闭 |
+| 自定义图标与应用名 | 默认 Icon Composer (`.icon`) 图标,应用名为 Nagram |
+| NagramSettings 基建 | 增强开关集中存储层 |
+
+后续波次方向:纯 UI 开关(显示 ID/DC、时间戳显秒、隐藏手机号、贴纸尺寸等)→ 消息交互(上下文菜单逐项开关、双击消息动作)→ 翻译与 LLM/AI 集成 → 正则消息过滤、盘古之白。
+
+## 构建
+
+通过 Bazel 构建,统一用 `build-system/Make/Make.py` 包装脚本;不支持分模块构建,只能整体编译 `Telegram/Telegram` target。命令末尾的 `--continueOnError` 会透传 bazel 的 `--keep_going`,验证大范围改动时让全部错误一次暴露。
+
+### 模拟器(免签,验证最快)
+
+免签名 + 免扩展靠项目根的 `local.bazelrc`(已 gitignore 不入库,`.bazelrc` 末尾 `try-import %workspace%/local.bazelrc` 会加载它)注入两个 flag:
+
+```
+build --//Telegram:disableProvisioningProfiles
+build --//Telegram:disableExtensions
+```
+
+编译:
+
+```sh
+python3 build-system/Make/Make.py --overrideXcodeVersion \
+  --cacheDir ~/telegram-bazel-cache \
+  build \
+  --configurationPath build-system/appstore-configuration.json \
+  --xcodeManagedCodesigning --buildNumber=1 \
+  --configuration=debug_sim_arm64 --continueOnError
+```
+
+产物为 `bazel-bin/Telegram/Telegram.ipa`(bundle id `ph.telegra.Telegraph`)。安装到已启动的模拟器:
+
+```sh
+unzip -o bazel-bin/Telegram/Telegram.ipa -d /tmp/tg-sim
+# ⚠️ 装过旧版务必先卸载,否则旧 Frameworks dylib 不会被替换
+xcrun simctl uninstall booted ph.telegra.Telegraph
+xcrun simctl install booted /tmp/tg-sim/Payload/Telegram.app
+```
+
+> `bazel clean --expunge`(即 Make.py 的 `clean` 子命令)会删掉 `local.bazelrc`。丢失后编译报扩展找不到 `*.mobileprovision`,按上面内容重建即可。
+
+### 真机(免费 Apple ID 自签)
+
+> Xcode 直装在 Xcode 26.5 + rules_xcodeproj「Build with Bazel」下不兼容(报 `unable to write ... Permission denied (13)`),改用命令行 build IPA + `devicectl` 直装。免费证书 **7 天**到期,过期重跑第 5 步即可。
+
+**1. 写 `build-input/local-configuration.json`**(`build-input/*` 已 gitignore,字段同官方 `build-system/template_minimal_development_configuration.json`):
+
+```json
+{
+  "bundle_id": "com.example.nagram",
+  "api_id": "<your_api_id>",
+  "api_hash": "<your_api_hash>",
+  "team_id": "<证书 OU 字段>",
+  "app_center_id": "0",
+  "is_internal_build": "true",
+  "is_appstore_build": "false",
+  "appstore_id": "0",
+  "app_specific_url_scheme": "tg",
+  "premium_iap_product_id": "",
+  "enable_siri": false,
+  "enable_icloud": false
+}
+```
+
+- `api_id` / `api_hash`:到 https://my.telegram.org/apps 申请自己的。
+- `team_id`:不是证书名括号里的序列号,而是证书 subject 的 `OU` 字段。查:
+  ```sh
+  security find-certificate -c "Apple Development" -p | openssl x509 -noout -subject
+  ```
+  取其中 `OU=` 的值。
+- `bundle_id`:用非官方 id(官方 id 仅 `ph.telegra.Telegraph` 等)。免费账号会自动把 entitlements 精简到仅剩 app-groups。
+
+**2. 生成 provisioning**(免费账号只能由 Xcode 自动生成):Xcode 新建空项目,让 **Bundle Identifier 精确等于上面的 `bundle_id`**(Xcode 中 Bundle ID = Organization Identifier + Product Name),Team 选 Personal Team,run 到真机一次(顺带完成设备信任)。
+
+**3. 把 provisioning 拷到 bazel 查找的路径**(Xcode 16+ 放在 UserData 下,bazel `local_provisioning_profile` 找传统路径):
+
+```sh
+cp ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision \
+   ~/Library/MobileDevice/Provisioning\ Profiles/
+```
+
+**4. 真机的 `local.bazelrc` 只留一行**(不能含 `disableProvisioningProfiles`,否则主 app 签名 select 走 None 分支失败):
+
+```
+build --//Telegram:disableExtensions
+```
+
+**5. 编译并安装**:
+
+```sh
+python3 build-system/Make/Make.py --overrideXcodeVersion \
+  --cacheDir ~/telegram-bazel-cache \
+  build \
+  --configurationPath build-input/local-configuration.json \
+  --xcodeManagedCodesigning --buildNumber=1 \
+  --configuration=debug_arm64 --continueOnError
+
+xcrun devicectl list devices        # 查设备 UDID
+unzip -o bazel-bin/Telegram/Telegram.ipa -d /tmp/tg-device
+xcrun devicectl device install app --device <DEVICE_UDID> /tmp/tg-device/Payload/Telegram.app
+```
+
+首次启动需在 iPhone「设置 → 通用 → VPN 与设备管理」中信任开发者证书。
+
+---
+
+以上为 Nagram-iOS 增强与构建说明。以下为上游 Telegram-iOS 的通用编译指南(原文保留):
+
 # Telegram iOS Source Code Compilation Guide
 
 We welcome all developers to use our API and source code to create applications on our platform.

@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## What is Nagram-iOS
 
@@ -12,7 +12,7 @@ A third-party enhancement fork of [Telegram-iOS](https://github.com/TelegramMess
 - **Upstream code changes must be annotated** with `// MARK: NAGRAM` at the modification site. This makes it possible to track and rebase onto upstream releases.
 - **Settings entry point:** the Nagram settings page appears as an independent group below "我的资料" (My Profile) in the PeerInfo screen. Implementation: `submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoSettingsItems.swift` (the `SettingsSection.nagram` enum case + item at id 50). The PeerInfoScreen BUILD file depends on `//Nagram/SettingsUI:NagramSettingsUI`.
 - **App icon:** Icon Composer `.icon` directory at `Telegram/Telegram-iOS/Nagram.icon`; set via `composer_icon_folders = ["Nagram"]` in `Telegram/BUILD` (line ~317).
-- **App name:** `CFBundleDisplayName` / `CFBundleName` set to "Nagram" in the main app's `TelegramInfoPlist` section of `Telegram/BUILD` (lines ~1553-1558). Extension plist targets (AppNameInfoPlist) are left as "Telegram".
+- **App name:** `CFBundleDisplayName` / `CFBundleName` set to "Nagram" in the main app's `TelegramInfoPlist` section of `Telegram/BUILD` (lines ~1553–1558). Extension plist targets (AppNameInfoPlist) are left as "Telegram".
 
 ## Build
 
@@ -24,7 +24,7 @@ The app uses Bazel via the `build-system/Make/Make.py` wrapper. There is no per-
 
 The repo `.bazelrc` ends with `try-import %workspace%/local.bazelrc`. This file controls whether extensions and provisioning are built:
 
-```sh
+```
 # local.bazelrc content (for both sim and device builds):
 build --//Telegram:disableExtensions
 ```
@@ -78,7 +78,6 @@ Requires `build-input/local-configuration.json` (gitignored via `build-input/*`)
 ```
 
 **team_id** is the `OU` field from the certificate subject (not the serial in parentheses):
-
 ```sh
 security find-certificate -c "Apple Development" -p | openssl x509 -noout -subject
 ```
@@ -122,42 +121,6 @@ First launch: trust the developer certificate in Settings → General → VPN & 
 
 Standard Swift conventions: PascalCase types, camelCase variables/methods, sorted imports. Annotation for Nagram-specific changes uses `// MARK: NAGRAM`.
 
-## Embedded watch app (`Telegram/WatchApp`)
-
-A standalone watchOS Telegram client (developed in the separate `~/build/tgwatch` repo) is vendored into this repo at `Telegram/WatchApp/` and can be embedded into the **device** IPA under `Telegram.app/Watch/`. It is built by `xcodebuild` (not Bazel) and codesigned by the Bazel build.
-
-**Build it:** add `--embedWatchApp` to a Make.py **device** build (`--configuration=debug_arm64` or `release_arm64`) together with `--watchApiId`, `--watchApiHash`, `--watchSigningIdentity`, `--watchProvisioningProfile`. Off by default; simulator builds never embed, and the default `debug_sim_arm64` build is unaffected.
-
-**`Telegram/WatchApp/` is a synced snapshot — do not hand-edit it.** The source of truth and dev tooling live in the `tgwatch` repo. To change the watch app, edit it there, then re-sync with `tgwatch/tools/export-sources.sh /abs/path/to/telegram-ios/Telegram/WatchApp` and commit the result.
-
-## View frame ownership
-
-A view does not control its own `frame`. The parent (or a layout system) sets the frame; the view positions its own subviews against `self.bounds` in response.
-
-- **Reusable components (`UIView`/`ASDisplayNode` subclasses).** Public methods like `update(...)` / `apply(...)` rebuild internal state, mutate child frames, and read `self.bounds` to lay them out — but they do not write `self.frame`.
-- **`asyncLayout`-style content nodes.** The measure pass runs off-main and returns a size; the apply step runs on main and the chat layout system positions the node. A child view that writes `self.frame` from `update()` corrupts the size the parent just measured.
-
-Rare exceptions: top-level view-controller views integrating with the system's first-responder/inset model.
-
-## InstantPage V2 & rich-text messages
-
-Typed markdown with structure the regular message-entity set cannot represent is sent as a **rich message** — a `RichTextMessageAttribute` carrying an `InstantPage`, drawn by `ChatMessageRichDataBubbleContentNode` via the **InstantPage V2** renderer. The detailed architecture lives in [`docs/instantpage-richtext.md`](docs/instantpage-richtext.md).
-
-## tgcalls Testbench
-
-This repo includes a tgcalls testbench layered on top of the iOS source. All testbench code, build instructions, and architecture docs live inside the tgcalls submodule:
-
-- `submodules/TgVoipWebrtc/tgcalls/CLAUDE.md` — top-level testbench overview, build/run commands
-- `submodules/TgVoipWebrtc/tgcalls/tools/cli/CLAUDE.md` — CLI test tool architecture
-- `submodules/TgVoipWebrtc/tgcalls/tools/go_sfu/CLAUDE.md` — Go SFU internals
-- `submodules/TgVoipWebrtc/CLAUDE.md` — tgcalls library internals + macOS/Linux build patches
-
-Build the test binary from this directory with:
-
-```sh
-./build-input/bazel-8.4.2 build //submodules/TgVoipWebrtc/tgcalls/tools/cli:tgcalls_cli
-```
-
 ## Postbox → TelegramEngine Refactor
 
 A gradual upstream migration to eliminate direct `import Postbox` from consumer submodules. Full history in [`docs/superpowers/postbox-refactor-log.md`](docs/superpowers/postbox-refactor-log.md).
@@ -182,32 +145,11 @@ PinnedItemId        → EngineChatList.PinnedItem.Id
 MemoryBuffer        → EngineMemoryBuffer       PostboxDecoder    → EnginePostboxDecoder
 PostboxEncoder      → EnginePostboxEncoder     AdaptedPostboxDecoder → EngineAdaptedPostboxDecoder
 ItemCollectionId    → EngineItemCollectionId   FetchResourceSourceType → EngineFetchResourceSourceType
-FetchResourceError  → EngineFetchResourceError StoryId           → EngineStoryId
-ChatListIndex       → EngineChatListIndex      TempBoxFile       → EngineTempBoxFile
-ItemCollectionItemIndex → EngineItemCollectionItemIndex
-ItemCollectionViewEntryIndex → EngineItemCollectionViewEntryIndex
-ValueBoxEncryptionParameters → EngineValueBoxEncryptionParameters
-MessageAndThreadId  → EngineMessageAndThreadId PeerStoryStats    → EnginePeerStoryStats
-MessageHistoryAnchorIndex → EngineMessageHistoryAnchorIndex
-ChatListTotalUnreadStateCategory → EngineChatListTotalUnreadStateCategory
-ChatListTotalUnreadStateStats → EngineChatListTotalUnreadStateStats
-PeerSummaryCounterTags → EnginePeerSummaryCounterTags
-ChatListTotalUnreadState → EngineChatListTotalUnreadState
-ItemCacheEntryId    → EngineItemCacheEntryId  HashFunctions      → EngineHashFunctions
-CachedMediaResourceRepresentationResult → EngineCachedMediaResourceRepresentationResult
-MediaResourceDataFetchResult → EngineMediaResourceDataFetchResult
-MediaResourceDataFetchError → EngineMediaResourceDataFetchError
-MediaResourceStatus → EngineMediaResourceStatus
+FetchResourceError  → EngineFetchResourceError
 ```
 
 `EngineMediaResource` is a **wrapper class** (not a typealias) — it wraps/unwraps via `EngineMediaResource(rawResource)` / `._asResource()`. Use it where a pure type reference suffices; fall back to raw `MediaResource` for protocol conformance or `isEqual(to:)`.
 
-**Free-function thin forwarders in TelegramCore** (rule 3 allows):
-
-- `engineFileSize(_ path:, useTotalFileAllocatedSize: Bool = false)` — forwards to Postbox's `fileSize(...)`.
-
-**TelegramEngineUnauthorized.resources facade**: `UnauthorizedResources.storeResourceData(id: EngineMediaResource.Id, data:, synchronous:)` bridges to `account.postbox.mediaBox.storeResourceData`.
-
-### TelegramEngine.Resources Facade
+### TelegramEngine.Resources Facade (as of wave 32)
 
 All mediaBox methods with clean signatures live in `submodules/TelegramCore/Sources/TelegramEngine/Resources/TelegramEngineResources.swift`. Consumers use `EngineMediaResource.Id` / `EngineMediaResource` parameters (never raw `MediaResourceId` / `MediaResource`).
