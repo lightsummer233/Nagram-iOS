@@ -71,6 +71,14 @@ import BrowserUI
 // MARK: NAGRAM
 import NagramSettings
 
+// MARK: NAGRAM — 私有占位输入视图，等价于 TextFieldComponent / ChatEntityKeyboardInputNode 两模块各自的
+// public EmptyInputView（定义完全相同）。用于 .media 输入模式占位，避免两同名 public 类型的 ambiguous 报错。
+private final class ChatMediaEmptyInputView: UIView, UIInputViewAudioFeedback {
+    var enableInputClicksWhenVisible: Bool {
+        return true
+    }
+}
+
 final class VideoNavigationControllerDropContentItem: NavigationControllerDropContentItem {
     let itemNode: OverlayMediaItemNode
     
@@ -3596,7 +3604,10 @@ class ChatControllerNode: ASDisplayNode, ASScrollViewDelegate {
         }
     }
         
-    private let emptyInputView = EmptyInputView()
+    // MARK: NAGRAM — EmptyInputView 在 TextFieldComponent 与 ChatEntityKeyboardInputNode 两模块
+    // 同名 public（定义完全相同），swiftc 6.3.2 报 ambiguous；两模块名又与各自类名冲突无法 Module.Type
+    // 限定。改用本文件顶部的私有占位类 ChatMediaEmptyInputView。
+    private let emptyInputView = ChatMediaEmptyInputView()
     private func chatPresentationInterfaceStateInputView(_ state: ChatPresentationInterfaceState) -> UIView? {
         switch state.inputMode {
         case .text:
