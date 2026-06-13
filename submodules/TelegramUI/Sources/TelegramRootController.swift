@@ -30,6 +30,9 @@ import PeerInfoScreen
 import PeerInfoStoryGridScreen
 import ShareWithPeersScreen
 import ChatEmptyNode
+// MARK: NAGRAM
+import NagramSettings
+import NagramSettingsSignal
 
 private class DetailsChatPlaceholderNode: ASDisplayNode, NavigationDetailsPlaceholderNode {
     private var presentationData: PresentationData
@@ -82,7 +85,11 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
     
     private var permissionsDisposable: Disposable?
     private var presentationDataDisposable: Disposable?
+    // MARK: NAGRAM
+    private var nagramTabBarSettingsDisposable: Disposable?
     private var presentationData: PresentationData
+    // MARK: NAGRAM
+    private var rootShowCallsTab: Bool = true
     
     private var detailsPlaceholderNode: DetailsChatPlaceholderNode?
     
@@ -119,6 +126,22 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
             }
         })
         
+        // MARK: NAGRAM
+        self.nagramTabBarSettingsDisposable = (combineLatest(
+            nagramBoolSignal("nagram.hideTabBar", defaultValue: false),
+            nagramBoolSignal("nagram.hideTabBarContacts", defaultValue: false),
+            nagramBoolSignal("nagram.hideTabBarChats", defaultValue: false),
+            nagramBoolSignal("nagram.hideTabBarSettings", defaultValue: false),
+            nagramBoolSignal("nagram.showTabBarSearch", defaultValue: false),
+            nagramBoolSignal("nagram.wideTabBar", defaultValue: true)
+        )
+        |> deliverOnMainQueue).startStrict(next: { [weak self] _, _, _, _, _, _ in
+            guard let strongSelf = self else {
+                return
+            }
+            strongSelf.updateRootControllers(showCallsTab: strongSelf.rootShowCallsTab)
+        })
+        
         if context.sharedContext.applicationBindings.isMainApp {
             self.applicationInFocusDisposable = (context.sharedContext.applicationBindings.applicationIsActive
             |> distinctUntilChanged
@@ -144,6 +167,7 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
     deinit {
         self.permissionsDisposable?.dispose()
         self.presentationDataDisposable?.dispose()
+        self.nagramTabBarSettingsDisposable?.dispose() // MARK: NAGRAM
         self.applicationInFocusDisposable?.dispose()
         self.storyUploadEventsDisposable?.dispose()
     }
@@ -198,7 +222,36 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         super.containerLayoutUpdated(layout, transition: transition)
     }
     
+    // MARK: NAGRAM
+    private func nagramRootControllers(showCallsTab: Bool) -> [ViewController] {
+        guard let contactsController = self.contactsController, let callListController = self.callListController, let chatListController = self.chatListController, let accountSettingsController = self.accountSettingsController else {
+            return []
+        }
+
+        let hideAll = NagramSettings.shared.hideTabBar
+        let showTabBarSearch = NagramSettings.shared.showTabBarSearch
+        var controllers: [ViewController] = []
+        if hideAll || !NagramSettings.shared.hideTabBarContacts {
+            controllers.append(contactsController)
+        }
+        if showCallsTab {
+            controllers.append(callListController)
+        }
+        if hideAll || !NagramSettings.shared.hideTabBarChats || showTabBarSearch {
+            controllers.append(chatListController)
+        }
+        if hideAll || !NagramSettings.shared.hideTabBarSettings {
+            controllers.append(accountSettingsController)
+        }
+        if controllers.isEmpty {
+            controllers.append(chatListController)
+        }
+        return controllers
+    }
+    
     public func addRootControllers(showCallsTab: Bool) {
+        // MARK: NAGRAM
+        self.rootShowCallsTab = showCallsTab
         let tabBarController = TabBarControllerImpl(theme: self.presentationData.theme, strings: self.presentationData.strings)
         tabBarController.navigationPresentation = .master
         let chatListController = self.context.sharedContext.makeChatListController(context: self.context, location: .chatList(groupId: .root), controlsHistoryPreload: true, hideNetworkActivityStatus: false, previewing: false, enableDebugActions: !GlobalExperimentalSettings.isAppStoreBuild)
@@ -213,12 +266,6 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         contactsController.switchToChatsController = {  [weak self] in
             self?.openChatsController(activateSearch: false)
         }
-        controllers.append(contactsController)
-        
-        if showCallsTab {
-            controllers.append(callListController)
-        }
-        controllers.append(chatListController)
         
         var restoreSettignsController: (ViewController & SettingsController)?
         if let sharedContext = self.context.sharedContext as? SharedAccountContextImpl {
@@ -237,31 +284,37 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
             strongSelf.pushViewController(debugController(sharedContext: strongSelf.context.sharedContext, context: strongSelf.context))
         }
         accountSettingsController.parentController = self
-        controllers.append(accountSettingsController)
-                
-        tabBarController.setControllers(controllers, selectedIndex: restoreSettignsController != nil ? (controllers.count - 1) : (controllers.count - 2))
         
         self.contactsController = contactsController
         self.callListController = callListController
         self.chatListController = chatListController
         self.accountSettingsController = accountSettingsController
+        controllers = self.nagramRootControllers(showCallsTab: showCallsTab)
+        let selectedIndex: Int
+        if restoreSettignsController != nil, let settingsIndex = controllers.firstIndex(where: { $0 === accountSettingsController }) {
+            selectedIndex = settingsIndex
+        } else if let chatsIndex = controllers.firstIndex(where: { $0 === chatListController }) {
+            selectedIndex = chatsIndex
+        } else {
+            selectedIndex = 0
+        }
+                
+        tabBarController.setControllers(controllers, selectedIndex: selectedIndex)
+        tabBarController.updateIsTabBarHidden(NagramSettings.shared.hideTabBar, transition: .immediate) // MARK: NAGRAM
         self.rootTabController = tabBarController
         self.pushViewController(tabBarController, animated: false)
     }
         
     public func updateRootControllers(showCallsTab: Bool) {
+        // MARK: NAGRAM
+        self.rootShowCallsTab = showCallsTab
         guard let rootTabController = self.rootTabController as? TabBarControllerImpl else {
             return
         }
-        var controllers: [ViewController] = []
-        controllers.append(self.contactsController!)
-        if showCallsTab {
-            controllers.append(self.callListController!)
-        }
-        controllers.append(self.chatListController!)
-        controllers.append(self.accountSettingsController!)
+        let controllers = self.nagramRootControllers(showCallsTab: showCallsTab)
         
         rootTabController.setControllers(controllers, selectedIndex: nil)
+        rootTabController.updateIsTabBarHidden(NagramSettings.shared.hideTabBar, transition: .animated(duration: 0.3, curve: .linear)) // MARK: NAGRAM
     }
     
     public func openChatsController(activateSearch: Bool, filter: ChatListSearchFilter = .chats, query: String? = nil) {

@@ -7,6 +7,7 @@ import PresentationDataUtils
 import AccountContext
 import NagramSettings
 import NagramStrings
+import TelegramUIPreferences
 
 // MARK: NAGRAM — 增强设置页 UI。
 // 顶部 3 段(通用/消息/其他)用 ItemListControllerTitle.sectionControl;段内用 section header 分层。
@@ -32,6 +33,7 @@ private enum NagramTab: Int32, CaseIterable {
 // 行类型:开关 / 单选(disclosure + ActionSheet) / 行内滑杆。
 private enum NagramRow {
     case toggle(titleKey: String, get: () -> Bool, set: (Bool) -> Void)
+    case toggleWithEnabled(titleKey: String, get: () -> Bool, set: (Bool) -> Void, enabled: () -> Bool)
     case choice(titleKey: String, prefix: String, options: [String], current: () -> String, set: (String) -> Void)
     case slider(minValue: Int32, maxValue: Int32, get: () -> Int32, set: (Int32) -> Void)
 }
@@ -43,11 +45,20 @@ private struct NagramGroup {
     let rows: [NagramRow]
 }
 
-private func nagramGroups() -> [NagramGroup] {
+private func nagramGroups(hideCalls: @escaping () -> Bool, setHideCalls: @escaping (Bool) -> Void) -> [NagramGroup] {
+    let tabBarSubitemEnabled: () -> Bool = {
+        return !NagramSettings.shared.hideTabBar
+    }
     return [
         // 通用
         NagramGroup(tab: .general, headerKey: "Nagram.Section.Interface", footerKey: nil, rows: [
             .toggle(titleKey: "Nagram.HideTabBar", get: { NagramSettings.shared.hideTabBar }, set: { NagramSettings.shared.hideTabBar = $0 }),
+            .toggleWithEnabled(titleKey: "Nagram.HideTabBarCalls", get: hideCalls, set: setHideCalls, enabled: tabBarSubitemEnabled),
+            .toggleWithEnabled(titleKey: "Nagram.HideTabBarContacts", get: { NagramSettings.shared.hideTabBarContacts }, set: { NagramSettings.shared.hideTabBarContacts = $0 }, enabled: tabBarSubitemEnabled),
+            .toggleWithEnabled(titleKey: "Nagram.HideTabBarChatList", get: { NagramSettings.shared.hideTabBarChats }, set: { NagramSettings.shared.hideTabBarChats = $0 }, enabled: tabBarSubitemEnabled),
+            .toggleWithEnabled(titleKey: "Nagram.HideTabBarSettings", get: { NagramSettings.shared.hideTabBarSettings }, set: { NagramSettings.shared.hideTabBarSettings = $0 }, enabled: tabBarSubitemEnabled),
+            .toggleWithEnabled(titleKey: "Nagram.ShowTabBarSearch", get: { NagramSettings.shared.showTabBarSearch }, set: { NagramSettings.shared.showTabBarSearch = $0 }, enabled: tabBarSubitemEnabled),
+            .toggleWithEnabled(titleKey: "Nagram.WideTabBar", get: { NagramSettings.shared.wideTabBar }, set: { NagramSettings.shared.wideTabBar = $0 }, enabled: tabBarSubitemEnabled),
             .toggle(titleKey: "Nagram.HideStories", get: { NagramSettings.shared.hideStories }, set: { NagramSettings.shared.hideStories = $0 }),
         ]),
         NagramGroup(tab: .general, headerKey: "Nagram.Section.Camera", footerKey: "Nagram.Section.Camera.Footer", rows: [
@@ -109,7 +120,7 @@ private final class NagramSettingsArguments {
 
 private enum NagramSettingsEntry: ItemListNodeEntry {
     case header(stableId: Int32, section: Int32, text: String)
-    case toggle(stableId: Int32, section: Int32, title: String, value: Bool, index: Int)
+    case toggle(stableId: Int32, section: Int32, title: String, value: Bool, enabled: Bool, index: Int)
     case disclosure(stableId: Int32, section: Int32, title: String, label: String, index: Int)
     case slider(stableId: Int32, section: Int32, minValue: Int32, maxValue: Int32, value: Int32, index: Int)
     case footer(stableId: Int32, section: Int32, text: String)
@@ -117,7 +128,7 @@ private enum NagramSettingsEntry: ItemListNodeEntry {
     var section: ItemListSectionId {
         switch self {
         case let .header(_, section, _): return section
-        case let .toggle(_, section, _, _, _): return section
+        case let .toggle(_, section, _, _, _, _): return section
         case let .disclosure(_, section, _, _, _): return section
         case let .slider(_, section, _, _, _, _): return section
         case let .footer(_, section, _): return section
@@ -127,7 +138,7 @@ private enum NagramSettingsEntry: ItemListNodeEntry {
     var stableId: Int32 {
         switch self {
         case let .header(stableId, _, _): return stableId
-        case let .toggle(stableId, _, _, _, _): return stableId
+        case let .toggle(stableId, _, _, _, _, _): return stableId
         case let .disclosure(stableId, _, _, _, _): return stableId
         case let .slider(stableId, _, _, _, _, _): return stableId
         case let .footer(stableId, _, _): return stableId
@@ -139,8 +150,8 @@ private enum NagramSettingsEntry: ItemListNodeEntry {
         case let .header(lId, lSec, lText):
             if case let .header(rId, rSec, rText) = rhs { return lId == rId && lSec == rSec && lText == rText }
             return false
-        case let .toggle(lId, lSec, lTitle, lValue, lIndex):
-            if case let .toggle(rId, rSec, rTitle, rValue, rIndex) = rhs { return lId == rId && lSec == rSec && lTitle == rTitle && lValue == rValue && lIndex == rIndex }
+        case let .toggle(lId, lSec, lTitle, lValue, lEnabled, lIndex):
+            if case let .toggle(rId, rSec, rTitle, rValue, rEnabled, rIndex) = rhs { return lId == rId && lSec == rSec && lTitle == rTitle && lValue == rValue && lEnabled == rEnabled && lIndex == rIndex }
             return false
         case let .disclosure(lId, lSec, lTitle, lLabel, lIndex):
             if case let .disclosure(rId, rSec, rTitle, rLabel, rIndex) = rhs { return lId == rId && lSec == rSec && lTitle == rTitle && lLabel == rLabel && lIndex == rIndex }
@@ -163,8 +174,8 @@ private enum NagramSettingsEntry: ItemListNodeEntry {
         switch self {
         case let .header(_, section, text):
             return ItemListSectionHeaderItem(presentationData: presentationData, text: text, sectionId: section)
-        case let .toggle(_, section, title, value, index):
-            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, sectionId: section, style: .blocks, updated: { value in
+        case let .toggle(_, section, title, value, enabled, index):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: title, value: value, enabled: enabled, sectionId: section, style: .blocks, updated: { value in
                 arguments.toggle(index, value)
             })
         case let .disclosure(_, section, title, label, index):
@@ -182,7 +193,15 @@ private enum NagramSettingsEntry: ItemListNodeEntry {
 }
 
 public func nagramSettingsController(context: AccountContext) -> ViewController {
-    let groups = nagramGroups()
+    var currentShowCallsTab = CallListSettings.defaultSettings.showTab
+    let groups = nagramGroups(hideCalls: {
+        return !currentShowCallsTab
+    }, setHideCalls: { hidden in
+        currentShowCallsTab = !hidden
+        let _ = updateCallListSettingsInteractively(accountManager: context.sharedContext.accountManager, {
+            $0.withUpdatedShowTab(!hidden)
+        }).startStandalone()
+    })
     let flatRows: [NagramRow] = groups.flatMap { $0.rows }
 
     let tabPromise = ValuePromise<Int32>(0, ignoreRepeated: true)
@@ -198,9 +217,12 @@ public func nagramSettingsController(context: AccountContext) -> ViewController 
     var presentControllerImpl: ((ViewController, ViewControllerPresentationArguments?) -> Void)?
 
     let arguments = NagramSettingsArguments(toggle: { index, value in
-        if case let .toggle(_, _, set) = flatRows[index] {
+        switch flatRows[index] {
+        case let .toggle(_, _, set), let .toggleWithEnabled(_, _, set, _):
             set(value)
             bump()
+        default:
+            break
         }
     }, disclosureAction: { index in
         let row = flatRows[index]
@@ -236,10 +258,15 @@ public func nagramSettingsController(context: AccountContext) -> ViewController 
     let signal = combineLatest(queue: .mainQueue(),
         context.sharedContext.presentationData,
         tabPromise.get(),
-        updatePromise.get()
+        updatePromise.get(),
+        context.sharedContext.accountManager.sharedData(keys: [ApplicationSpecificSharedDataKeys.callListSettings])
+        |> map { sharedData -> Bool in
+            return sharedData.entries[ApplicationSpecificSharedDataKeys.callListSettings]?.get(CallListSettings.self)?.showTab ?? CallListSettings.defaultSettings.showTab
+        }
     )
     |> deliverOnMainQueue
-    |> map { presentationData, selectedTab, _ -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, selectedTab, _, showCallsTab -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        currentShowCallsTab = showCallsTab
         let lang = presentationData.strings.baseLanguageCode
 
         // stableId 必须全局唯一且稳定:遍历所有 group 全局递增分配,当前 tab 只取子集。
@@ -265,7 +292,9 @@ public func nagramSettingsController(context: AccountContext) -> ViewController 
                 if isCurrent {
                     switch row {
                     case let .toggle(titleKey, get, _):
-                        entries.append(.toggle(stableId: rowStableId, section: sectionId, title: ngI18n(titleKey, lang), value: get(), index: rowIndex))
+                        entries.append(.toggle(stableId: rowStableId, section: sectionId, title: ngI18n(titleKey, lang), value: get(), enabled: true, index: rowIndex))
+                    case let .toggleWithEnabled(titleKey, get, _, enabled):
+                        entries.append(.toggle(stableId: rowStableId, section: sectionId, title: ngI18n(titleKey, lang), value: get(), enabled: enabled(), index: rowIndex))
                     case let .choice(titleKey, prefix, _, current, _):
                         entries.append(.disclosure(stableId: rowStableId, section: sectionId, title: ngI18n(titleKey, lang), label: ngI18n("\(prefix).\(current())", lang), index: rowIndex))
                     case let .slider(minValue, maxValue, get, _):

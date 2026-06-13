@@ -61,6 +61,7 @@ public final class ChatListNavigationBar: Component {
     public let storiesIncludeHidden: Bool
     public let uploadProgress: [EnginePeer.Id: Float]
     public let headerPanels: AnyComponent<Empty>?
+    public let headerPanelsTopSpacing: CGFloat
     public let tabsNode: ASDisplayNode?
     public let tabsNodeIsSearch: Bool
     public let accessoryPanelContainer: ASDisplayNode?
@@ -84,6 +85,7 @@ public final class ChatListNavigationBar: Component {
         storiesIncludeHidden: Bool,
         uploadProgress: [EnginePeer.Id: Float],
         headerPanels: AnyComponent<Empty>?,
+        headerPanelsTopSpacing: CGFloat = 0.0,
         tabsNode: ASDisplayNode?,
         tabsNodeIsSearch: Bool,
         accessoryPanelContainer: ASDisplayNode?,
@@ -106,6 +108,7 @@ public final class ChatListNavigationBar: Component {
         self.storiesIncludeHidden = storiesIncludeHidden
         self.uploadProgress = uploadProgress
         self.headerPanels = headerPanels
+        self.headerPanelsTopSpacing = headerPanelsTopSpacing
         self.tabsNode = tabsNode
         self.tabsNodeIsSearch = tabsNodeIsSearch
         self.accessoryPanelContainer = accessoryPanelContainer
@@ -156,6 +159,9 @@ public final class ChatListNavigationBar: Component {
             return false
         }
         if lhs.headerPanels != rhs.headerPanels {
+            return false
+        }
+        if lhs.headerPanelsTopSpacing != rhs.headerPanelsTopSpacing {
             return false
         }
         if lhs.tabsNode !== rhs.tabsNode {
@@ -641,6 +647,7 @@ public final class ChatListNavigationBar: Component {
                     storiesIncludeHidden: component.storiesIncludeHidden,
                     uploadProgress: storyUploadProgress,
                     headerPanels: component.headerPanels,
+                    headerPanelsTopSpacing: component.headerPanelsTopSpacing,
                     tabsNode: component.tabsNode,
                     tabsNodeIsSearch: component.tabsNodeIsSearch,
                     accessoryPanelContainer: component.accessoryPanelContainer,
@@ -730,7 +737,7 @@ public final class ChatListNavigationBar: Component {
                 }
             }
             
-            var headersContentHeight: CGFloat = 0.0
+            var headersContentHeight: CGFloat = component.headerPanelsTopSpacing
             if let disappearingHeaderPanelsView = self.disappearingHeaderPanels?.view {
                 let headerPanelsFrame = CGRect(origin: CGPoint(x: 0.0, y: headersContentHeight), size: disappearingHeaderPanelsView.bounds.size)
                 transition.setFrame(view: disappearingHeaderPanelsView, frame: headerPanelsFrame)

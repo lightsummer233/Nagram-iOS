@@ -18,6 +18,7 @@ swift_library(
         "//submodules/ItemListUI:ItemListUI",
         "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/AccountContext:AccountContext",
+        "//submodules/TelegramUIPreferences:TelegramUIPreferences",
         "//Nagram/Settings:NagramSettings",
         "//Nagram/Strings:NagramStrings",
         "//Nagram/SettingsSignal:NagramSettingsSignal",

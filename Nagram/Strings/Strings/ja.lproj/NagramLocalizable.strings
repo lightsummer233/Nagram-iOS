@@ -47,3 +47,10 @@
 "Nagram.Section.Interface" = "インターフェース";
 "Nagram.HideStories" = "ストーリーズを非表示";
 "Nagram.HideTabBar" = "タブバーを非表示";
+"Nagram.HideTabBarCalls" = "通話を非表示";
+"Nagram.HideTabBarContacts" = "連絡先を非表示";
+"Nagram.HideTabBarChats" = "チャットを非表示";
+"Nagram.HideTabBarChatList" = "チャットを非表示";
+"Nagram.HideTabBarSettings" = "設定を非表示";
+"Nagram.ShowTabBarSearch" = "上部検索を非表示";
+"Nagram.WideTabBar" = "幅広のタブバーを表示";

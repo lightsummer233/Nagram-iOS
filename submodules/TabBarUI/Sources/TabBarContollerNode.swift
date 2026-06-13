@@ -15,17 +15,20 @@ final class TabBarControllerNode: ASDisplayNode {
         let toolbar: Toolbar?
         let isTabBarHidden: Bool
         let currentControllerSearchState: ViewController.TabBarSearchState?
+        let nagramWideTabBar: Bool
         
         init(
             layout: ContainerViewLayout,
             toolbar: Toolbar?,
             isTabBarHidden: Bool,
-            currentControllerSearchState: ViewController.TabBarSearchState?
+            currentControllerSearchState: ViewController.TabBarSearchState?,
+            nagramWideTabBar: Bool
         ) {
             self.layout = layout
             self.toolbar = toolbar
             self.isTabBarHidden = isTabBarHidden
             self.currentControllerSearchState = currentControllerSearchState
+            self.nagramWideTabBar = nagramWideTabBar
         }
     }
     
@@ -178,7 +181,7 @@ final class TabBarControllerNode: ASDisplayNode {
     }
     
     func containerLayoutUpdated(_ layout: ContainerViewLayout, toolbar: Toolbar?, transition: ContainedViewLayoutTransition) -> CGFloat {
-        let params = Params(layout: layout, toolbar: toolbar, isTabBarHidden: self.tabBarHidden, currentControllerSearchState: self.currentController?.tabBarSearchState)
+        let params = Params(layout: layout, toolbar: toolbar, isTabBarHidden: self.tabBarHidden, currentControllerSearchState: self.currentController?.tabBarSearchState, nagramWideTabBar: NagramSettings.shared.wideTabBar)
         if let layoutResult = self.layoutResult, layoutResult.params == params {
             return layoutResult.bottomInset
         } else {
@@ -216,9 +219,19 @@ final class TabBarControllerNode: ASDisplayNode {
             sideInset = 20.0
         }
         
+        let visibleTabBarItems: [(index: Int, item: TabBarNodeItem)] = self.tabBarItems.enumerated().compactMap { index, item in
+            if NagramSettings.shared.hideTabBarChats && item.item.animationName == "TabChats" {
+                return nil
+            }
+            return (index, item)
+        }
+        
         var selectedId: AnyHashable?
         if self.selectedIndex < self.tabBarItems.count {
-            selectedId = ObjectIdentifier(self.tabBarItems[self.selectedIndex].item)
+            let selectedItem = self.tabBarItems[self.selectedIndex].item
+            if visibleTabBarItems.contains(where: { $0.item.item === selectedItem }) {
+                selectedId = ObjectIdentifier(selectedItem)
+            }
         }
         var tabBarTransition = ComponentTransition(transition)
         if self.isChangingSelectedIndex {
@@ -228,15 +241,22 @@ final class TabBarControllerNode: ASDisplayNode {
         if self.tabBarView.view == nil {
             tabBarTransition = .immediate
         }
+        let nagramLayoutItemCount: Int?
+        if params.nagramWideTabBar {
+            nagramLayoutItemCount = nil
+        } else {
+            nagramLayoutItemCount = max(visibleTabBarItems.count, 4)
+        }
         let tabBarSize = self.tabBarView.update(
             transition: tabBarTransition,
             component: AnyComponent(TabBarComponent(
                 theme: self.theme,
                 strings: self.strings,
-                items: self.tabBarItems.map { item in
+                items: visibleTabBarItems.map { visibleItem in
+                    let item = visibleItem.item
                     let itemId = AnyHashable(ObjectIdentifier(item.item))
                     
-                    let index = self.tabBarItems.firstIndex(where: { AnyHashable(ObjectIdentifier($0.item)) == itemId }) ?? 0
+                    let index = visibleItem.index
                     
                     return TabBarComponent.Item(
                         content: .tabBarItem(item.item),
@@ -284,12 +304,19 @@ final class TabBarControllerNode: ASDisplayNode {
                     )
                 },
                 selectedId: selectedId,
-                outerInsets: UIEdgeInsets(top: 0.0, left: sideInset, bottom: tabBarBottomInset, right: sideInset)
+                outerInsets: UIEdgeInsets(top: 0.0, left: sideInset, bottom: tabBarBottomInset, right: sideInset),
+                layoutItemCount: nagramLayoutItemCount
             )),
             environment: {},
             containerSize: CGSize(width: params.layout.size.width - sideInset * 2.0, height: 100.0)
         )
-        let tabBarFrame = CGRect(origin: CGPoint(x: floor((params.layout.size.width - tabBarSize.width) * 0.5), y: params.layout.size.height - (self.tabBarHidden ? 0.0 : (tabBarSize.height + tabBarBottomInset))), size: tabBarSize)
+        let tabBarOriginX: CGFloat
+        if nagramLayoutItemCount != nil && self.currentController?.tabBarSearchState == nil {
+            tabBarOriginX = sideInset
+        } else {
+            tabBarOriginX = floor((params.layout.size.width - tabBarSize.width) * 0.5)
+        }
+        let tabBarFrame = CGRect(origin: CGPoint(x: tabBarOriginX, y: params.layout.size.height - (self.tabBarHidden ? 0.0 : (tabBarSize.height + tabBarBottomInset))), size: tabBarSize)
         
         if let tabBarComponentView = self.tabBarView.view {
             if tabBarComponentView.superview == nil {

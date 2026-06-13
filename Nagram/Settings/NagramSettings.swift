@@ -84,6 +84,21 @@ public final class NagramSettings {
     /// 隐藏底部标签栏
     @NagramDefault("nagram.hideTabBar", false)
     public var hideTabBar: Bool
+    /// 隐藏底栏联系人入口
+    @NagramDefault("nagram.hideTabBarContacts", false)
+    public var hideTabBarContacts: Bool
+    /// 隐藏底栏消息入口
+    @NagramDefault("nagram.hideTabBarChats", false)
+    public var hideTabBarChats: Bool
+    /// 隐藏底栏设置入口
+    @NagramDefault("nagram.hideTabBarSettings", false)
+    public var hideTabBarSettings: Bool
+    /// 隐藏首页顶部搜索
+    @NagramDefault("nagram.showTabBarSearch", false)
+    public var showTabBarSearch: Bool
+    /// 展示宽底栏（默认开 = 保持原生均分宽度）
+    @NagramDefault("nagram.wideTabBar", true)
+    public var wideTabBar: Bool
     /// 贴纸尺寸百分比（50–200，默认 100）
     @NagramDefault("nagram.stickerSize", Int32(100))
     public var stickerSize: Int32

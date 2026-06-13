@@ -47,3 +47,10 @@
 "Nagram.Section.Interface" = "界面";
 "Nagram.HideStories" = "隐藏动态";
 "Nagram.HideTabBar" = "隐藏底部标签栏";
+"Nagram.HideTabBarCalls" = "隐藏通话";
+"Nagram.HideTabBarContacts" = "隐藏联系人";
+"Nagram.HideTabBarChats" = "隐藏聊天";
+"Nagram.HideTabBarChatList" = "隐藏聊天";
+"Nagram.HideTabBarSettings" = "隐藏设置";
+"Nagram.ShowTabBarSearch" = "隐藏顶部搜索";
+"Nagram.WideTabBar" = "展示宽底栏";

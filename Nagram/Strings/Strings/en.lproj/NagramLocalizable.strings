@@ -47,3 +47,10 @@
 "Nagram.Section.Interface" = "Interface";
 "Nagram.HideStories" = "Hide Stories";
 "Nagram.HideTabBar" = "Hide Tab Bar";
+"Nagram.HideTabBarCalls" = "Hide Calls";
+"Nagram.HideTabBarContacts" = "Hide Contacts";
+"Nagram.HideTabBarChats" = "Hide Chats";
+"Nagram.HideTabBarChatList" = "Hide Chats";
+"Nagram.HideTabBarSettings" = "Hide Settings";
+"Nagram.ShowTabBarSearch" = "Hide Top Search";
+"Nagram.WideTabBar" = "Show Wide Tab Bar";

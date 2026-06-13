@@ -21,12 +21,14 @@ public final class NavigationSearchView: UIView {
         let theme: PresentationTheme
         let strings: PresentationStrings
         let isActive: Bool
+        let isExpanded: Bool
 
-        init(size: CGSize, theme: PresentationTheme, strings: PresentationStrings, isActive: Bool) {
+        init(size: CGSize, theme: PresentationTheme, strings: PresentationStrings, isActive: Bool, isExpanded: Bool) {
             self.size = size
             self.theme = theme
             self.strings = strings
             self.isActive = isActive
+            self.isExpanded = isExpanded
         }
 
         static func ==(lhs: Params, rhs: Params) -> Bool {
@@ -42,6 +44,9 @@ public final class NavigationSearchView: UIView {
             if lhs.isActive != rhs.isActive {
                 return false
             }
+            if lhs.isExpanded != rhs.isExpanded {
+                return false
+            }
             return true
         }
     }
@@ -51,6 +56,7 @@ public final class NavigationSearchView: UIView {
 
     private let backgroundView: GlassBackgroundView
     private let iconView: UIImageView
+    private let placeholderLabel: UILabel
     private(set) var searchBarNode: SearchBarNode?
     
     private var close: (background: GlassBackgroundView, icon: UIImageView)?
@@ -64,11 +70,13 @@ public final class NavigationSearchView: UIView {
         self.backgroundView = GlassBackgroundView()
         self.backgroundView.contentView.clipsToBounds = true
         self.iconView = UIImageView()
+        self.placeholderLabel = UILabel()
 
         super.init(frame: CGRect())
 
         self.addSubview(self.backgroundView)
         self.backgroundView.contentView.addSubview(self.iconView)
+        self.backgroundView.contentView.addSubview(self.placeholderLabel)
 
         self.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.onTapGesture(_:))))
     }
@@ -89,8 +97,8 @@ public final class NavigationSearchView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    public func update(size: CGSize, theme: PresentationTheme, strings: PresentationStrings, isActive: Bool, transition: ComponentTransition) { 
-        let params = Params(size: size, theme: theme, strings: strings, isActive: isActive)
+    public func update(size: CGSize, theme: PresentationTheme, strings: PresentationStrings, isActive: Bool, isExpanded: Bool = false, transition: ComponentTransition) {
+        let params = Params(size: size, theme: theme, strings: strings, isActive: isActive, isExpanded: isExpanded)
         if self.params == params {
             return
         }
@@ -100,13 +108,11 @@ public final class NavigationSearchView: UIView {
 
     private func update(params: Params, transition: ComponentTransition) {
         let backgroundSize: CGSize
-        if params.isActive {
+        if params.isActive && !params.isExpanded {
             backgroundSize = CGSize(width: params.size.width - 48.0 - 8.0, height: params.size.height)
         } else {
             backgroundSize = CGSize(width: params.size.width, height: params.size.height)
         }
-        
-        let previousBackgroundFrame = self.backgroundView.frame
         
         transition.setFrame(view: self.backgroundView, frame: CGRect(origin: CGPoint(), size: backgroundSize))
         let alphaTransition: ComponentTransition = transition.animation.isImmediate ? .immediate : .easeInOut(duration: 0.25)
@@ -116,12 +122,13 @@ public final class NavigationSearchView: UIView {
         if self.iconView.image == nil {
             self.iconView.image = UIImage(bundleImageName: "Navigation/Search")?.withRenderingMode(.alwaysTemplate)
         }
-        transition.setTintColor(view: self.iconView, color: params.isActive ? params.theme.rootController.navigationSearchBar.inputIconColor : params.theme.chat.inputPanel.panelControlColor)
+        let iconColor = params.isActive ? params.theme.rootController.navigationSearchBar.inputIconColor : (params.isExpanded ? params.theme.chat.inputPanel.inputPlaceholderColor : params.theme.chat.inputPanel.panelControlColor)
+        transition.setTintColor(view: self.iconView, color: iconColor)
         
         if let image = self.iconView.image {
             let imageSize: CGSize
             let iconFrame: CGRect
-            if params.isActive {
+            if params.isActive || params.isExpanded {
                 let iconFraction: CGFloat = 0.8
                 imageSize = CGSize(width: image.size.width * iconFraction, height: image.size.height * iconFraction)
                 iconFrame = CGRect(origin: CGPoint(x: 12.0, y: floor((params.size.height - imageSize.height) * 0.5)), size: imageSize)
@@ -131,6 +138,13 @@ public final class NavigationSearchView: UIView {
             transition.setPosition(view: self.iconView, position: iconFrame.center)
             transition.setBounds(view: self.iconView, bounds: CGRect(origin: CGPoint(), size: iconFrame.size))
         }
+
+        self.placeholderLabel.text = params.strings.Common_Search
+        self.placeholderLabel.font = Font.regular(17.0)
+        self.placeholderLabel.textColor = params.theme.chat.inputPanel.inputPlaceholderColor
+        let placeholderFrame = CGRect(origin: CGPoint(x: 44.0, y: 0.0), size: CGSize(width: max(0.0, backgroundSize.width - 56.0), height: params.size.height))
+        transition.setFrame(view: self.placeholderLabel, frame: placeholderFrame)
+        alphaTransition.setAlpha(view: self.placeholderLabel, alpha: (!params.isActive && params.isExpanded) ? 1.0 : 0.0)
 
         if params.isActive {
             let searchBarNode: SearchBarNode
@@ -178,7 +192,7 @@ public final class NavigationSearchView: UIView {
             }
         }
         
-        if params.isActive {
+        if params.isActive && !params.isExpanded {
             let closeFrame = CGRect(origin: CGPoint(x: params.size.width - 48.0, y: 0.0), size: CGSize(width: 48.0, height: 48.0))
             
             let close: (background: GlassBackgroundView, icon: UIImageView)
@@ -214,7 +228,7 @@ public final class NavigationSearchView: UIView {
                     close.icon.frame = image.size.centered(in: CGRect(origin: CGPoint(), size: closeFrame.size))
                 }
                 
-                close.background.frame = closeFrame.size.centered(in: previousBackgroundFrame)
+                close.background.frame = closeFrame
                 close.background.update(size: close.background.bounds.size, cornerRadius: close.background.bounds.height * 0.5, isDark: params.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isInteractive: true, transition: .immediate)
                 ComponentTransition.immediate.setScale(view: close.background, scale: 0.001)
             }
@@ -234,11 +248,11 @@ public final class NavigationSearchView: UIView {
             if let close = self.close {
                 self.close = nil
                 let closeBackground = close.background
-                let closeFrame = CGSize(width: 48.0, height: 48.0).centered(in: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: params.size))
+                let closeFrame = CGRect(origin: CGPoint(x: params.size.width - 48.0, y: 0.0), size: CGSize(width: 48.0, height: 48.0))
                 transition.setPosition(view: closeBackground, position: closeFrame.center)
                 transition.setBounds(view: closeBackground, bounds: CGRect(origin: CGPoint(), size: closeFrame.size))
                 closeBackground.update(size: closeFrame.size, cornerRadius: closeFrame.height * 0.5, isDark: params.theme.overallDarkAppearance, tintColor: .init(kind: .panel), isInteractive: true, transition: transition)
-                transition.setScale(view: closeBackground, scale: 0.001, completion: { [weak closeBackground] _ in
+                transition.setAlpha(view: closeBackground, alpha: 0.0, completion: { [weak closeBackground] _ in
                     closeBackground?.removeFromSuperview()
                 })
             }
@@ -354,6 +368,7 @@ public final class TabBarComponent: Component {
     public let search: Search?
     public let selectedId: AnyHashable?
     public let outerInsets: UIEdgeInsets
+    public let layoutItemCount: Int?
     
     public init(
         theme: PresentationTheme,
@@ -363,7 +378,8 @@ public final class TabBarComponent: Component {
         items: [Item],
         search: Search?,
         selectedId: AnyHashable?,
-        outerInsets: UIEdgeInsets
+        outerInsets: UIEdgeInsets,
+        layoutItemCount: Int? = nil
     ) {
         self.theme = theme
         self.tintSelectedItem = tintSelectedItem
@@ -373,6 +389,7 @@ public final class TabBarComponent: Component {
         self.search = search
         self.selectedId = selectedId
         self.outerInsets = outerInsets
+        self.layoutItemCount = layoutItemCount
     }
     
     public static func ==(lhs: TabBarComponent, rhs: TabBarComponent) -> Bool {
@@ -398,6 +415,9 @@ public final class TabBarComponent: Component {
             return false
         }
         if lhs.outerInsets != rhs.outerInsets {
+            return false
+        }
+        if lhs.layoutItemCount != rhs.layoutItemCount {
             return false
         }
         return true
@@ -705,11 +725,17 @@ public final class TabBarComponent: Component {
             let itemWidths: [CGFloat]
             let totalItemsWidth: CGFloat
 
-            let equalWidth = floorToScreenPixels(availableItemsWidth / CGFloat(component.items.count))
+            let layoutItemCount = max(component.items.count, component.layoutItemCount ?? component.items.count)
+            let equalWidth = floorToScreenPixels(availableItemsWidth / CGFloat(max(1, layoutItemCount)))
             if unboundItemWidths.allSatisfy({ $0 <= equalWidth }) {
                 // All items fit in equal width — use equal widths for optical alignment
                 itemWidths = Array(repeating: equalWidth, count: component.items.count)
                 totalItemsWidth = equalWidth * CGFloat(component.items.count)
+            } else if component.layoutItemCount != nil {
+                // MARK: NAGRAM
+                // Keep hidden-tab layouts on the original slot width instead of expanding remaining items.
+                itemWidths = unboundItemWidths.map { max(equalWidth, $0) }
+                totalItemsWidth = itemWidths.reduce(0.0, +)
             } else {
                 // Some items need more space — use weighted fit
                 let itemWeightNorm: CGFloat = availableItemsWidth / unboundItemWidthSum
@@ -727,6 +753,7 @@ public final class TabBarComponent: Component {
             let itemHeight: CGFloat = 56.0
             let contentWidth: CGFloat = innerInset * 2.0 + totalItemsWidth
             let tabsSize = CGSize(width: min(availableSize.width, contentWidth), height: itemHeight + innerInset * 2.0)
+            let hasItems = !component.items.isEmpty
 
             var selectionFrame: CGRect?
             var nextItemX: CGFloat = innerInset
@@ -864,6 +891,8 @@ public final class TabBarComponent: Component {
 
             transition.setFrame(view: self.contextGestureContainerView, frame: tabsFrame)
             transition.setFrame(view: self.liquidLensView, frame: CGRect(origin: CGPoint(), size: tabsSize))
+            transition.setAlpha(view: self.contextGestureContainerView, alpha: hasItems ? 1.0 : 0.0)
+            self.contextGestureContainerView.isUserInteractionEnabled = hasItems
             
             var lensSelection: (x: CGFloat, width: CGFloat)
             if let selectionGestureState = self.selectionGestureState {
@@ -895,9 +924,17 @@ public final class TabBarComponent: Component {
                     size.width = availableSize.width
                     searchSize = CGSize(width: availableSize.width, height: 48.0)
                     searchFrame = CGRect(origin: CGPoint(x: 0.0, y: size.height - searchSize.height), size: searchSize)
+                } else if !hasItems {
+                    size.width = availableSize.width
+                    searchSize = CGSize(width: availableSize.width, height: 48.0)
+                    searchFrame = CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: searchSize)
                 } else {
                     searchSize = CGSize(width: barHeight, height: barHeight)
-                    size.width += barHeight + 8.0
+                    if component.layoutItemCount != nil {
+                        size.width = availableSize.width // MARK: NAGRAM — keep right-side search anchored.
+                    } else {
+                        size.width += barHeight + 8.0
+                    }
                     searchFrame = CGRect(origin: CGPoint(x: availableSize.width - searchSize.width, y: 0.0), size: searchSize)
                 }
 
@@ -925,7 +962,7 @@ public final class TabBarComponent: Component {
                     self.backgroundContainer.contentView.addSubview(searchView)
                     searchView.frame = CGRect(origin: CGPoint(x: availableSize.width + 50.0, y: 0.0), size: searchSize)
                 }
-                searchView.update(size: searchSize, theme: component.theme, strings: component.strings, isActive: search.isActive, transition: searchViewTransition)
+                searchView.update(size: searchSize, theme: component.theme, strings: component.strings, isActive: search.isActive, isExpanded: !search.isActive && !hasItems, transition: searchViewTransition)
                 transition.setFrame(view: searchView, frame: searchFrame)
             } else {
                 if let searchView = self.searchView {

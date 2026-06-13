@@ -189,6 +189,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     private(set) var isPremium: Bool = false
     private(set) var storyPostingAvailability: StoriesConfiguration.PostingAvailability = .disabled
     private var storiesPostingAvailabilityDisposable: Disposable?
+    private var nagramTabBarSearchDisposable: Disposable?
     private let storyPostingAvailabilityValue = ValuePromise<StoriesConfiguration.PostingAvailability>(.disabled)
     
     private var didSetupTabs = false
@@ -775,6 +776,11 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         self.updateNavigationMetadata()
 
         self.updateTabBarSearchState(ViewController.TabBarSearchState(isActive: false), transition: .immediate)
+        // MARK: NAGRAM
+        self.nagramTabBarSearchDisposable = (nagramBoolSignal("nagram.showTabBarSearch", defaultValue: false)
+        |> deliverOnMainQueue).startStrict(next: { [weak self] _ in
+            self?.requestLayout(transition: .animated(duration: 0.3, curve: .linear))
+        })
         
         self.globalControlPanelsContextStateDisposable = (self.globalControlPanelsContext.state
         |> deliverOnMainQueue).startStrict(next: { [weak self] state in
@@ -813,6 +819,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
         self.preloadStorySubscriptionsDisposable?.dispose()
         self.storyProgressDisposable?.dispose()
         self.storiesPostingAvailabilityDisposable?.dispose()
+        self.nagramTabBarSearchDisposable?.dispose() // MARK: NAGRAM
         self.sharedOpenStoryProgressDisposable.dispose()
         for (_, disposable) in self.preloadStoryResourceDisposables {
             disposable.dispose()
@@ -7245,8 +7252,8 @@ private final class ChatListLocationContext {
                 } else {
                     self.storyButton = nil
                 }
-                // MARK: NAGRAM — hideTabBar 时补 header 设置入口(隐藏 tab bar 后唯一进设置途径,防锁死)
-                if NagramSettings.shared.hideTabBar {
+                // MARK: NAGRAM — hideTabBar / hide settings tab 时补 header 设置入口,防锁死。
+                if NagramSettings.shared.hideTabBar || NagramSettings.shared.hideTabBarSettings {
                     self.settingsButton = AnyComponentWithIdentity(id: "settings", component: AnyComponent(NavigationButtonComponent(
                         content: .more,
                         pressed: { [weak self] _ in

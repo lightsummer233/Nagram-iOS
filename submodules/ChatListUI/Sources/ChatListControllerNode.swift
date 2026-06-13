@@ -29,6 +29,7 @@ import LiveLocationHeaderPanelComponent
 import ChatListHeaderNoticeComponent
 import ChatListFilterTabContainerNode
 import GlassControls
+import NagramSettings
 
 public enum ChatListContainerNodeFilter: Equatable {
     case all
@@ -1658,6 +1659,13 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
             }
         }
         
+        let shouldHideHomeSearchBar: Bool
+        if case .chatList(groupId: .root) = self.location {
+            shouldHideHomeSearchBar = NagramSettings.shared.showTabBarSearch
+        } else {
+            shouldHideHomeSearchBar = false
+        }
+        
         let navigationBarSize = self.navigationBarView.update(
             transition: transition,
             component: AnyComponent(ChatListNavigationBar(
@@ -1666,7 +1674,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 strings: self.presentationData.strings,
                 statusBarHeight: layout.statusBarHeight ?? 0.0,
                 sideInset: layout.safeInsets.left,
-                search: ChatListNavigationBar.Search(isEnabled: true),
+                search: shouldHideHomeSearchBar ? nil : ChatListNavigationBar.Search(isEnabled: true), // MARK: NAGRAM
                 activeSearch: self.isSearchDisplayControllerActive,
                 primaryContent: headerContent?.primaryContent,
                 secondaryContent: headerContent?.secondaryContent,
@@ -1675,6 +1683,7 @@ final class ChatListControllerNode: ASDisplayNode, ASGestureRecognizerDelegate {
                 storiesIncludeHidden: self.location == .chatList(groupId: .archive),
                 uploadProgress: self.controller?.storyUploadProgress ?? [:],
                 headerPanels: navigationHeaderPanels,
+                headerPanelsTopSpacing: shouldHideHomeSearchBar ? 8.0 : 0.0, // MARK: NAGRAM
                 tabsNode: nil,
                 tabsNodeIsSearch: false,
                 accessoryPanelContainer: self.controller?.accessoryPanelContainer,
