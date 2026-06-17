@@ -533,6 +533,40 @@ def resolve_configuration(base_path, bazel_command_line: BazelCommandLine, argum
         file.write('])\n')
 
 
+def patch_generated_xcodeproj_bazel_build_script(xcodeproj_path):
+    bazel_build_path = os.path.join(xcodeproj_path, "rules_xcodeproj/bazel/bazel_build.sh")
+    if not os.path.isfile(bazel_build_path):
+        return
+
+    with open(bazel_build_path, "r") as file:
+        contents = file.read()
+
+    marker = "# MARK: NAGRAM\n"
+    if marker not in contents:
+        contents = contents.replace(
+            "bazel_cmd=(\n",
+            marker
+            + "# Keep the generated project on Xcode's normal toolchain by default.\n"
+            + "# Local machines can opt in to a different Bazel-resolved toolchain with NAGRAM_*.\n"
+            + "nagram_developer_dir=\"${NAGRAM_DEVELOPER_DIR:-$DEVELOPER_DIR}\"\n"
+            + "nagram_xcode_product_build_version=\"${NAGRAM_XCODE_PRODUCT_BUILD_VERSION:-$XCODE_PRODUCT_BUILD_VERSION}\"\n\n"
+            + "bazel_cmd=(\n"
+        )
+
+    replacements = {
+        "\"--host_jvm_args=-Xdock:name=$DEVELOPER_DIR\"": "\"--host_jvm_args=-Xdock:name=$nagram_developer_dir\"",
+        "\"--xcode_version=$XCODE_PRODUCT_BUILD_VERSION\"": "\"--xcode_version=$nagram_xcode_product_build_version\"",
+        "\"--repo_env=DEVELOPER_DIR=$DEVELOPER_DIR\"": "\"--repo_env=DEVELOPER_DIR=$nagram_developer_dir\"",
+        "\"--repo_env=USE_CLANG_CL=$XCODE_PRODUCT_BUILD_VERSION\"": "\"--repo_env=USE_CLANG_CL=$nagram_xcode_product_build_version\"",
+        "\"--repo_env=XCODE_VERSION=$XCODE_PRODUCT_BUILD_VERSION\"": "\"--repo_env=XCODE_VERSION=$nagram_xcode_product_build_version\"",
+    }
+    for old, new in replacements.items():
+        contents = contents.replace(old, new)
+
+    with open(bazel_build_path, "w") as file:
+        file.write(contents)
+
+
 def generate_project(bazel, arguments):
     bazel_command_line = BazelCommandLine(
         bazel=bazel,
@@ -587,6 +621,7 @@ def generate_project(bazel, arguments):
         bazel_app_arguments=bazel_command_line.get_project_generation_arguments(),
         target_name=target_name
     )
+    patch_generated_xcodeproj_bazel_build_script(xcodeproj_path)
 
     if target_name == "Telegram":
         run_executable_with_output('swift', arguments=[
