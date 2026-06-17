@@ -4500,8 +4500,9 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
         let blurTransitionOut: ComponentTransition = transition.isAnimated ? .easeInOut(duration: 0.18) : .immediate
         let sendButtonBlurOut: CGFloat = 4.0
         
-        var hideMicButton = NagramSettings.shared.hideRecordingButton // MARK: NAGRAM
-        var hideMicButtonBackground = NagramSettings.shared.hideRecordingButton // MARK: NAGRAM
+        let nagramHideRecordingButton = NagramSettings.shared.hideRecordingButton // MARK: NAGRAM
+        var hideMicButton = nagramHideRecordingButton // MARK: NAGRAM
+        var hideMicButtonBackground = nagramHideRecordingButton // MARK: NAGRAM
         
         if self.customRightAction != nil {
             self.mediaActionButtons.isHidden = true
@@ -4536,7 +4537,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             }
             hasForward = presentationInterfaceState.interfaceState.forwardMessageIds != nil
             
-            hideMicButtonBackground = presentationInterfaceState.inputTextPanelState.mediaRecordingState != nil
+            hideMicButtonBackground = hideMicButtonBackground || presentationInterfaceState.inputTextPanelState.mediaRecordingState != nil // MARK: NAGRAM
         }
         if hasForward {
             keepSendButtonEnabled = true
@@ -4584,7 +4585,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
                 }
             }
             
-            if (NagramSettings.shared.hideRecordingButton || hasText || keepSendButtonEnabled && !mediaInputIsActive && !hasSlowModeButton) { // MARK: NAGRAM
+            if hasText || keepSendButtonEnabled && !mediaInputIsActive && !hasSlowModeButton { // MARK: NAGRAM
                 if self.sendActionButtons.sendContainerNode.alpha.isZero && self.rightSlowModeInset.isZero {
                     alphaTransition.updateAlpha(node: self.sendActionButtons.sendContainerNode, alpha: 1.0)
                     blurTransitionIn.setBlur(layer: self.sendActionButtons.sendContainerNode.layer, radius: 0.0)
@@ -4611,7 +4612,7 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             }
         }
         
-        let hideExpandMediaInput = false
+        let hideExpandMediaInput = nagramHideRecordingButton // MARK: NAGRAM
         
         if mediaInputIsActive {
             hideMicButton = true
@@ -4648,11 +4649,10 @@ public class ChatTextInputPanelNode: ChatInputPanelNode, ASEditableTextNodeDeleg
             ComponentTransition(transition).setScale(view: self.mediaActionButtons.micButton, scale: 1.0)
             ComponentTransition(transition).setScale(view: self.mediaActionButtons.micButtonTintMaskView, scale: 1.0)
             
-            if !self.mediaActionButtons.micButton.alpha.isZero {
-                alphaTransition.updateAlpha(layer: self.mediaActionButtons.micButton.layer, alpha: 0.0)
-                alphaTransition.updateAlpha(layer: self.mediaActionButtons.micButtonBackgroundView.layer, alpha: 0.0)
-                alphaTransition.updateAlpha(layer: self.mediaActionButtons.micButtonTintMaskView.layer, alpha: 0.0)
-            }
+            // MARK: NAGRAM — 隐藏录音按钮时也要清掉可能残留的背景圆。
+            alphaTransition.updateAlpha(layer: self.mediaActionButtons.micButton.layer, alpha: 0.0)
+            alphaTransition.updateAlpha(layer: self.mediaActionButtons.micButtonBackgroundView.layer, alpha: 0.0)
+            alphaTransition.updateAlpha(layer: self.mediaActionButtons.micButtonTintMaskView.layer, alpha: 0.0)
         } else {
             ComponentTransition(alphaTransition).setAlpha(view: self.mediaActionButtons.stopButtonIcon, alpha: 0.0)
             ComponentTransition(transition).setScale(view: self.mediaActionButtons.stopButtonIcon, scale: 0.001)
