@@ -7,20 +7,167 @@
 - 仓库只支持整体构建 `Telegram/Telegram`，没有可靠的分模块 build。
 - 每次 rebase / checkout 上游后先跑 `git submodule update --init --recursive`，并用 `git submodule status --recursive` 确认没有 `+` / `-` / `U` 前缀。
 - `local.bazelrc` 是本机配置，已被 gitignore。`Make.py clean` / `bazel clean --expunge` 会删掉它，清理后需要重建。
-- 真机包不要开启 `disableProvisioningProfiles`，否则主 app 签名配置会走 `None` 分支。
-- 模拟器包可以在 `local.bazelrc` 中临时开启 `build --//Telegram:disableProvisioningProfiles`。
+- 真机包永远不要开启 `disableProvisioningProfiles`，否则主 app 签名配置会走 `None` 分支。
+- 有正式/完整 provisioning 文件时，必须启用扩展；不要写 `build --//Telegram:disableExtensions`。
+- 只有免费 Apple ID 自签或模拟器免签时，才允许禁用扩展。
 - 本机当前使用 Xcode 26.5 CLI toolchain。Xcode 27 beta 相关问题不要和业务代码错误混在一起排查。
 
-## 推荐打包入口
+## 签名模式选择
 
-真机 debug 包优先走 direct Bazel，绕开当前 `Make.py` debug 参数问题。先同步 submodule：
+| 模式 | provisioning 状态 | 扩展策略 | provisioning 策略 |
+|---|---|---|---|
+| 正式/完整签名真机包 | 主 app + 6 个扩展都有 profile | 必须启用扩展 | 必须启用 provisioning |
+| 免费 Apple ID 自签 | 通常只有主 app profile | 允许禁用扩展 | 必须启用 provisioning |
+| 模拟器免签 | 不需要 profile | 允许禁用扩展 | 允许禁用 provisioning |
 
-```sh
-git submodule update --init --recursive
-git submodule status --recursive
+完整签名至少需要这些 provisioning 目标：
+
+- `Telegram`
+- `Share`
+- `NotificationContent`
+- `NotificationService`
+- `Intents`
+- `Widget`
+- `BroadcastUpload`
+
+当前仓库的 `build-input/codesigning-development/profiles/` 已有一套完整 development profiles；使用它时就是“正式/完整签名真机包”模式，不能禁用扩展。
+
+## local.bazelrc 模板
+
+`local.bazelrc` 可以放 Xcode/toolchain/warning workaround，但签名相关 flag 必须按模式写。
+
+正式/完整签名真机包：
+
+```bazelrc
+# 不写 disableExtensions
+# 不写 disableProvisioningProfiles
 ```
 
-再打包：
+免费 Apple ID 自签：
+
+```bazelrc
+build --//Telegram:disableExtensions
+# 不写 disableProvisioningProfiles
+```
+
+模拟器免签：
+
+```bazelrc
+build --//Telegram:disableProvisioningProfiles
+build --//Telegram:disableExtensions
+```
+
+本机常用 toolchain workaround 可按需追加：
+
+```bazelrc
+build --repo_env=DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+build --repo_env=XCODE_VERSION=17F42
+build --xcode_version_config=//build-input/xcode:host_xcodes
+build --action_env=DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+build --host_action_env=DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+build --features=no_include_scanning
+build --host_features=no_include_scanning
+build --copt=-Wno-deprecated-declarations
+build --@build_bazel_rules_swift//swift:copt=-no-warnings-as-errors
+```
+
+原因：
+
+- `DEVELOPER_DIR` / `xcode_version_config`：强制使用 Xcode 26.5 CLI toolchain，避免被 Xcode 27 beta 接管。
+- `no_include_scanning`：绕过 clang 21 + Bazel 8.x 的 absolute-path 依赖校验问题。
+- `-Wno-deprecated-declarations` / `-no-warnings-as-errors`：minimum OS 提到 17.0 后，上游大量 iOS 15/16/17 deprecated API 会从 warning 变成 error。
+
+## 正式/完整签名真机包
+
+`local.bazelrc` 不得包含任何 `disableExtensions` / `disableProvisioningProfiles`。编译：
+
+```sh
+source ~/.zshrc 2>/dev/null
+python3 build-system/Make/Make.py --overrideXcodeVersion \
+  --cacheDir ~/telegram-bazel-cache \
+  build \
+  --configurationPath build-input/local-configuration.json \
+  --codesigningInformationPath build-input/codesigning-development \
+  --buildNumber=1 \
+  --configuration=debug_arm64 --continueOnError
+```
+
+产物：
+
+```text
+bazel-bin/Telegram/Telegram.ipa
+```
+
+安装：
+
+```sh
+xcrun devicectl list devices
+unzip -o bazel-bin/Telegram/Telegram.ipa -d /tmp/tg-device
+xcrun devicectl device install app --device <DEVICE_UDID> /tmp/tg-device/Payload/Telegram.app
+```
+
+## 免费 Apple ID 自签
+
+免费账号通常没有 6 个扩展 profile，所以这个模式允许禁用扩展，但仍然必须保留主 app provisioning：
+
+```bazelrc
+build --//Telegram:disableExtensions
+```
+
+`build-input/local-configuration.json` 字段同 `build-system/template_minimal_development_configuration.json`。注意：
+
+- `team_id` 是 Apple Development 证书 subject 的 `OU` 字段，不是证书名括号里的序列号。
+- `bundle_id` 用非官方 id，并让 Xcode 空项目的 Bundle Identifier 与它完全一致。
+- Xcode 生成的 `.mobileprovision` 需要拷到 Bazel 查找的传统路径：
+
+```sh
+cp ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision \
+   ~/Library/MobileDevice/Provisioning\ Profiles/
+```
+
+编译：
+
+```sh
+source ~/.zshrc 2>/dev/null
+python3 build-system/Make/Make.py --overrideXcodeVersion \
+  --cacheDir ~/telegram-bazel-cache \
+  build \
+  --configurationPath build-input/local-configuration.json \
+  --xcodeManagedCodesigning --buildNumber=1 \
+  --configuration=debug_arm64 --continueOnError
+```
+
+## 模拟器免签
+
+模拟器模式可以禁用 provisioning 和扩展：
+
+```bazelrc
+build --//Telegram:disableProvisioningProfiles
+build --//Telegram:disableExtensions
+```
+
+编译：
+
+```sh
+python3 build-system/Make/Make.py --overrideXcodeVersion \
+  --cacheDir ~/telegram-bazel-cache \
+  build \
+  --configurationPath build-system/appstore-configuration.json \
+  --xcodeManagedCodesigning --buildNumber=1 \
+  --configuration=debug_sim_arm64 --continueOnError
+```
+
+安装：
+
+```sh
+unzip -o bazel-bin/Telegram/Telegram.ipa -d /tmp/tg-sim
+xcrun simctl uninstall booted ph.telegra.Telegraph
+xcrun simctl install booted /tmp/tg-sim/Payload/Telegram.app
+```
+
+## Direct Bazel fallback
+
+如果 `Make.py` debug wrapper 触发 Swift `-j <n>` 问题，先让 `Make.py` 按目标签名模式生成过 `build-input/configuration-repository/variables.bzl`，再走 direct Bazel：
 
 ```sh
 source ~/.zshrc 2>/dev/null
@@ -37,31 +184,7 @@ build-input/bazel-8.4.2-darwin-arm64 build Telegram/Telegram \
   --watchos_cpus=arm64_32
 ```
 
-这个命令依赖 `build-system/Make/Make.py` 已经用 `build-input/local-configuration.json` 生成过 `build-input/configuration-repository/variables.bzl`。如果刚换 bundle id / team id / API 配置，需要先跑一次 Make.py 让配置落盘。
-
-## 本机 local.bazelrc 关键项
-
-当前本机需要保留这些方向：
-
-```bazelrc
-build --//Telegram:disableExtensions
-build --repo_env=DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-build --repo_env=XCODE_VERSION=17F42
-build --xcode_version_config=//build-input/xcode:host_xcodes
-build --action_env=DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-build --host_action_env=DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-build --features=no_include_scanning
-build --host_features=no_include_scanning
-build --copt=-Wno-deprecated-declarations
-build --@build_bazel_rules_swift//swift:copt=-no-warnings-as-errors
-```
-
-原因：
-
-- `disableExtensions`：免费 Apple ID 避免扩展 App ID / provisioning 复杂度。
-- `DEVELOPER_DIR` / `xcode_version_config`：强制使用 Xcode 26.5 CLI toolchain，避免被 Xcode 27 beta 接管。
-- `no_include_scanning`：绕过 clang 21 + Bazel 8.x 的 absolute-path 依赖校验问题。
-- `-Wno-deprecated-declarations` / `-no-warnings-as-errors`：minimum OS 提到 17.0 后，上游大量 iOS 15/16/17 deprecated API 会从 warning 变成 error。
+这个 fallback 复用当前 `local.bazelrc`，所以切换正式/免费/模拟器模式时仍要先改对签名 flag。
 
 ## 2026-06-14 编译问题记录
 

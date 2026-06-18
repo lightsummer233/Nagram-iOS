@@ -30,40 +30,60 @@ git submodule update --init --recursive
 git submodule status --recursive   # 确认没有 + / - / U 前缀
 ```
 
-### 模拟器(免签,验证最快)
+### 先选签名模式
 
-免签名 + 免扩展靠项目根的 `local.bazelrc`(已 gitignore 不入库,`.bazelrc` 末尾 `try-import %workspace%/local.bazelrc` 会加载它)注入两个 flag:
+`local.bazelrc` 是本机配置,已 gitignore;仓库根 `.bazelrc` 末尾会 `try-import %workspace%/local.bazelrc`。`bazel clean --expunge` / `Make.py clean` 会删掉它,清理后要按当前模式重建。
 
-```
-build --//Telegram:disableProvisioningProfiles
-build --//Telegram:disableExtensions
-```
+| 模式 | provisioning 状态 | `local.bazelrc` 里是否允许禁用扩展 |
+|---|---|---|
+| 正式/完整签名真机包 | 主 app + 6 个扩展都有 profile | **不允许**写 `build --//Telegram:disableExtensions` |
+| 免费 Apple ID 自签 | 通常只有主 app profile | 可以写 `build --//Telegram:disableExtensions` |
+| 模拟器免签 | 不需要 profile | 可以同时写 `build --//Telegram:disableProvisioningProfiles` 和 `build --//Telegram:disableExtensions` |
+
+硬规则:
+
+- 有正式/完整 provisioning 文件时,必须启用扩展;不要禁用 `Share`、`NotificationContent`、`NotificationService`、`Intents`、`Widget`、`BroadcastUpload`。
+- 真机包永远不要写 `build --//Telegram:disableProvisioningProfiles`,否则主 app 签名会走 `None` 分支。
+- `Make.py build` 不接受 `--disableProvisioningProfiles` / `--disableExtensions` 命令行参数;这些 Bazel flag 放进 `local.bazelrc`,或走 direct Bazel。
+
+### 真机(正式/完整 provisioning)
+
+仓库当前 `build-input/codesigning-development/profiles/` 已有完整 development profiles。用这套 profile 时,`local.bazelrc` 只能放 Xcode/toolchain/warning 相关配置,不能包含任何 `disableExtensions` / `disableProvisioningProfiles`。
+
+完整签名至少需要这些 provisioning 目标:
+
+- `Telegram`
+- `Share`
+- `NotificationContent`
+- `NotificationService`
+- `Intents`
+- `Widget`
+- `BroadcastUpload`
 
 编译:
 
 ```sh
+source ~/.zshrc 2>/dev/null
 python3 build-system/Make/Make.py --overrideXcodeVersion \
   --cacheDir ~/telegram-bazel-cache \
   build \
-  --configurationPath build-system/appstore-configuration.json \
-  --xcodeManagedCodesigning --buildNumber=1 \
-  --configuration=debug_sim_arm64 --continueOnError
+  --configurationPath build-input/local-configuration.json \
+  --codesigningInformationPath build-input/codesigning-development \
+  --buildNumber=1 \
+  --configuration=debug_arm64 --continueOnError
 ```
 
-产物为 `bazel-bin/Telegram/Telegram.ipa`(bundle id `ph.telegra.Telegraph`)。安装到已启动的模拟器:
+产物为 `bazel-bin/Telegram/Telegram.ipa`。安装到真机:
 
 ```sh
-unzip -o bazel-bin/Telegram/Telegram.ipa -d /tmp/tg-sim
-# ⚠️ 装过旧版务必先卸载,否则旧 Frameworks dylib 不会被替换
-xcrun simctl uninstall booted ph.telegra.Telegraph
-xcrun simctl install booted /tmp/tg-sim/Payload/Telegram.app
+xcrun devicectl list devices
+unzip -o bazel-bin/Telegram/Telegram.ipa -d /tmp/tg-device
+xcrun devicectl device install app --device <DEVICE_UDID> /tmp/tg-device/Payload/Telegram.app
 ```
-
-> `bazel clean --expunge`(即 Make.py 的 `clean` 子命令)会删掉 `local.bazelrc`。丢失后编译报扩展找不到 `*.mobileprovision`,按上面内容重建即可。
 
 ### 真机(免费 Apple ID 自签)
 
-> Xcode 直装在 Xcode 26.5 + rules_xcodeproj「Build with Bazel」下不兼容(报 `unable to write ... Permission denied (13)`),改用命令行 build IPA + `devicectl` 直装。免费证书 **7 天**到期,过期重跑第 5 步即可。
+> 免费账号通常没有扩展 App ID / provisioning,所以这个模式才允许禁用扩展。免费证书 **7 天**到期,过期重跑 provisioning 生成步骤即可。
 
 **1. 写 `build-input/local-configuration.json`**(`build-input/*` 已 gitignore,字段同官方 `build-system/template_minimal_development_configuration.json`):
 
@@ -101,7 +121,7 @@ cp ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision \
    ~/Library/MobileDevice/Provisioning\ Profiles/
 ```
 
-**4. 真机的 `local.bazelrc` 只留一行**(不能含 `disableProvisioningProfiles`,否则主 app 签名 select 走 None 分支失败):
+**4. 免费自签的 `local.bazelrc` 只留扩展禁用项**(不能含 `disableProvisioningProfiles`,否则主 app 签名 select 走 None 分支失败):
 
 ```
 build --//Telegram:disableExtensions
@@ -109,7 +129,17 @@ build --//Telegram:disableExtensions
 
 **5. 编译并安装**:
 
-当前 `Make.py` 的 debug 配置会把 Swift `-j <n>` 当成输入文件传给编译器，真机 debug 包先走 direct Bazel。这个命令依赖 `build-input/configuration-repository/variables.bzl` 已由 `build-input/local-configuration.json` 生成；只改代码、不改本地配置时不用重新生成。
+```sh
+source ~/.zshrc 2>/dev/null
+python3 build-system/Make/Make.py --overrideXcodeVersion \
+  --cacheDir ~/telegram-bazel-cache \
+  build \
+  --configurationPath build-input/local-configuration.json \
+  --xcodeManagedCodesigning --buildNumber=1 \
+  --configuration=debug_arm64 --continueOnError
+```
+
+如果当前 `Make.py` debug wrapper 把 Swift `-j <n>` 当成输入文件,先确认它已经生成过 `build-input/configuration-repository/variables.bzl`,再走 direct Bazel:
 
 ```sh
 source ~/.zshrc 2>/dev/null
@@ -135,6 +165,35 @@ xcrun devicectl device install app --device <DEVICE_UDID> /tmp/tg-device/Payload
 ```
 
 首次启动需在 iPhone「设置 → 通用 → VPN 与设备管理」中信任开发者证书。
+
+### 模拟器(免签,验证最快)
+
+模拟器免签名 + 免扩展时,`local.bazelrc` 可以临时写:
+
+```
+build --//Telegram:disableProvisioningProfiles
+build --//Telegram:disableExtensions
+```
+
+编译:
+
+```sh
+python3 build-system/Make/Make.py --overrideXcodeVersion \
+  --cacheDir ~/telegram-bazel-cache \
+  build \
+  --configurationPath build-system/appstore-configuration.json \
+  --xcodeManagedCodesigning --buildNumber=1 \
+  --configuration=debug_sim_arm64 --continueOnError
+```
+
+产物为 `bazel-bin/Telegram/Telegram.ipa`(bundle id `ph.telegra.Telegraph`)。安装到已启动的模拟器:
+
+```sh
+unzip -o bazel-bin/Telegram/Telegram.ipa -d /tmp/tg-sim
+# 装过旧版务必先卸载,否则旧 Frameworks dylib 不会被替换
+xcrun simctl uninstall booted ph.telegra.Telegraph
+xcrun simctl install booted /tmp/tg-sim/Payload/Telegram.app
+```
 
 ---
 
@@ -239,7 +298,9 @@ If you encounter this issue, re-run the project generation steps in the README.
 
 ## Codesigning is not required for simulator-only builds
 
-Add `--disableProvisioningProfiles`:
+Nagram note: this upstream tip only applies to generating a simulator-only Xcode project. For current Nagram `Make.py build`, put `build --//Telegram:disableProvisioningProfiles` in `local.bazelrc`. Do not use it for device builds or when full provisioning profiles are present.
+
+Upstream example:
 ```
 python3 build-system/Make/Make.py \
     --cacheDir="$HOME/telegram-bazel-cache" \
