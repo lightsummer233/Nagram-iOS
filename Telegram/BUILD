@@ -76,6 +76,12 @@ bool_flag(
 )
 
 bool_flag(
+    name = "nagramNotificationExtensionsOnly",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
     name = "disableProvisioningProfiles",
     build_setting_default = False,
     visibility = ["//visibility:public"],
@@ -91,6 +97,13 @@ config_setting(
     name = "disableExtensionsSetting",
     flag_values = {
         ":disableExtensions": "True",
+    },
+)
+
+config_setting(
+    name = "nagramNotificationExtensionsOnlySetting",
+    flag_values = {
+        ":nagramNotificationExtensionsOnly": "True",
     },
 )
 
@@ -1801,6 +1814,11 @@ ios_application(
     ],
     extensions = select({
         ":disableExtensionsSetting": [],
+        # MARK: NAGRAM
+        ":nagramNotificationExtensionsOnlySetting": [
+            ":NotificationContentExtension",
+            ":NotificationServiceExtension" + notificationServiceExtensionVersion,
+        ],
         "//conditions:default": [
             ":ShareExtension",
             ":NotificationContentExtension",
