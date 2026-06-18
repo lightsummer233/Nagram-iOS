@@ -30,6 +30,10 @@ extension PeerInfoScreenNode {
             } else {
                 var updatedControllers = navigationController.viewControllers
                 for controller in navigationController.viewControllers.reversed() {
+                    // MARK: NAGRAM — preserve standalone settings page when the settings tab is hidden, so interactive pop returns to it.
+                    if strongSelf.isSettings && controller === strongSelf.controller {
+                        break
+                    }
                     if controller !== strongSelf && !(controller is TabBarController) {
                         updatedControllers.removeLast()
                     } else {
