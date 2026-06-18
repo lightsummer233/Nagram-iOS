@@ -10,7 +10,7 @@
 "Nagram.Section.MessageMenu" = "消息菜单";
 "Nagram.Section.Sending" = "发送";
 "Nagram.Section.Gesture" = "手势";
-"Nagram.Section.Gesture.Footer" = "在频道/主题底部上滑时，是否跳转到下一个会话。";
+"Nagram.Section.Gesture.Footer" = "配置对话列表横滑，以及频道/主题底部上滑时是否跳转到下一个会话。";
 "Nagram.Section.Privacy" = "隐私";
 
 "Nagram.SecondsInMessages" = "时间戳显示秒";
@@ -25,6 +25,11 @@
 "Nagram.UploadSpeedBoost" = "上传加速";
 "Nagram.Section.Network" = "网络加速";
 "Nagram.VideoPIPSwipeUp" = "上滑打开画中画";
+"Nagram.ChatListSwipeAction" = "对话列表横滑";
+"Nagram.ChatListSwipeAction.both" = "切换 + 快捷";
+"Nagram.ChatListSwipeAction.switch" = "切换";
+"Nagram.ChatListSwipeAction.quick" = "快捷";
+"Nagram.ChatListSwipeAction.none" = "无";
 "Nagram.HideChannelBottomButton" = "隐藏频道底部面板";
 "Nagram.HideSponsoredMessages" = "隐藏赞助消息";
 "Nagram.DisableScrollToNextChannel" = "禁止上滑到下一频道";

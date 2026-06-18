@@ -556,7 +556,13 @@ public final class ChatListContainerNode: ASDisplayNode, ASGestureRecognizerDele
         self.applyItemNodeAsCurrent(id: .all, itemNode: itemNode)
         
         let panRecognizer = InteractiveTransitionGestureRecognizer(target: self, action: #selector(self.panGesture(_:)), allowedDirections: { [weak self] _ in
-            guard let self, self.availableFilters.count > 1 || (self.controller?.isStoryPostingAvailable == true && !(self.context.sharedContext.callManager?.hasActiveCall ?? false)) else {
+            guard let self else {
+                return []
+            }
+            guard NagramSettings.shared.chatListSwipeActionMode.allowsFolderSwitch else { // MARK: NAGRAM
+                return []
+            }
+            guard self.availableFilters.count > 1 || (self.controller?.isStoryPostingAvailable == true && !(self.context.sharedContext.callManager?.hasActiveCall ?? false)) else {
                 return []
             }
             guard case .chatList(.root) = self.location else {

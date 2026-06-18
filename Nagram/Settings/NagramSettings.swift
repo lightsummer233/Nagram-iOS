@@ -37,6 +37,31 @@ public struct NagramDefault<T> {
     }
 }
 
+public enum NagramChatListSwipeAction: String {
+    case both
+    case folderSwitch = "switch"
+    case quickActions = "quick"
+    case none
+
+    public var allowsFolderSwitch: Bool {
+        switch self {
+        case .both, .folderSwitch:
+            return true
+        case .quickActions, .none:
+            return false
+        }
+    }
+
+    public var allowsQuickActions: Bool {
+        switch self {
+        case .both, .quickActions:
+            return true
+        case .folderSwitch, .none:
+            return false
+        }
+    }
+}
+
 public final class NagramSettings {
     public static let shared = NagramSettings()
     private init() {}
@@ -111,6 +136,9 @@ public final class NagramSettings {
     /// 上滑视频开启画中画（"up" / "none"）
     @NagramDefault("nagram.videoPIPSwipeDirection", "up")
     public var videoPIPSwipeDirection: String
+    /// 对话列表横滑行为（"both" / "switch" / "quick" / "none"）
+    @NagramDefault("nagram.chatListSwipeAction", NagramChatListSwipeAction.both.rawValue)
+    public var chatListSwipeAction: String
     /// 资料页显示用户数字 ID（默认关 = 保持原生）
     @NagramDefault("nagram.showProfileId", false)
     public var showProfileId: Bool
@@ -148,6 +176,10 @@ public final class NagramSettings {
 }
 
 public extension NagramSettings {
+    var chatListSwipeActionMode: NagramChatListSwipeAction {
+        return NagramChatListSwipeAction(rawValue: self.chatListSwipeAction) ?? .both
+    }
+
     /// 下载分片大小：按加速档位放大（接入 TelegramCore FetchV2）。仿 SG getSGDownloadPartSize。
     func downloadPartSize(default defaultValue: Int64, fileSize: Int64?) -> Int64 {
         let smallFileThreshold: Int64 = 1 * 1024 * 1024

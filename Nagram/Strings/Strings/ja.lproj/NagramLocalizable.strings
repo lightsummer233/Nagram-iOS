@@ -10,7 +10,7 @@
 "Nagram.Section.MessageMenu" = "メッセージメニュー";
 "Nagram.Section.Sending" = "送信";
 "Nagram.Section.Gesture" = "ジェスチャ";
-"Nagram.Section.Gesture.Footer" = "チャンネル/トピックの最下部で上にスワイプした際、次のチャットへ移動するかどうか。";
+"Nagram.Section.Gesture.Footer" = "チャットリストの横スワイプと、チャンネル/トピック最下部で上にスワイプした際に次のチャットへ移動するかを設定します。";
 "Nagram.Section.Privacy" = "プライバシー";
 
 "Nagram.SecondsInMessages" = "タイムスタンプに秒を表示";
@@ -25,6 +25,11 @@
 "Nagram.UploadSpeedBoost" = "アップロード高速化";
 "Nagram.Section.Network" = "ネットワーク高速化";
 "Nagram.VideoPIPSwipeUp" = "上スワイプでピクチャインピクチャ";
+"Nagram.ChatListSwipeAction" = "チャットリスト横スワイプ";
+"Nagram.ChatListSwipeAction.both" = "切替 + クイック";
+"Nagram.ChatListSwipeAction.switch" = "切替";
+"Nagram.ChatListSwipeAction.quick" = "クイック";
+"Nagram.ChatListSwipeAction.none" = "なし";
 "Nagram.HideChannelBottomButton" = "チャンネル下部パネルを非表示";
 "Nagram.HideSponsoredMessages" = "広告メッセージを非表示";
 "Nagram.DisableScrollToNextChannel" = "次のチャンネルへのスワイプを無効化";

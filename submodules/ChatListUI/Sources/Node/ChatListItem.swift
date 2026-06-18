@@ -28,6 +28,7 @@ import AppBundle
 import MultilineTextComponent
 import MultilineTextWithEntitiesComponent
 import ShimmerEffect
+import NagramSettings
 
 public enum ChatListItemContent {
     public final class ThreadInfo: Equatable {
@@ -3848,6 +3849,11 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                 peerRevealOptions = []
                 peerLeftRevealOptions = []
             }
+            let allowsQuickActions = NagramSettings.shared.chatListSwipeActionMode.allowsQuickActions // MARK: NAGRAM
+            if !allowsQuickActions {
+                peerRevealOptions = []
+                peerLeftRevealOptions = []
+            }
             
             let (onlineLayout, onlineApply) = onlineLayout(online, onlineIsVoiceChat)
             var animateContent = false
@@ -5190,7 +5196,7 @@ public class ChatListItemNode: ItemListRevealOptionsItemNode {
                         strongSelf.setRevealOptions((left: peerLeftRevealOptions, right: peerRevealOptions), enableAnimations: item.context.sharedContext.energyUsageSettings.fullTranslucency)
                     }
                     if !strongSelf.customAnimationInProgress {
-                        strongSelf.setRevealOptionsOpened(item.hasActiveRevealControls, animated: true)
+                        strongSelf.setRevealOptionsOpened(allowsQuickActions && item.hasActiveRevealControls, animated: true) // MARK: NAGRAM
                     }
                     
                     strongSelf.view.accessibilityLabel = strongSelf.accessibilityLabel

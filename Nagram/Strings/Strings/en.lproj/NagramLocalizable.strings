@@ -10,7 +10,7 @@
 "Nagram.Section.MessageMenu" = "Message Menu";
 "Nagram.Section.Sending" = "Sending";
 "Nagram.Section.Gesture" = "Gestures";
-"Nagram.Section.Gesture.Footer" = "When swiping up at the bottom of a channel/topic, whether to jump to the next chat.";
+"Nagram.Section.Gesture.Footer" = "Configure chat list horizontal swipes and whether swiping up at the bottom of a channel/topic jumps to the next chat.";
 "Nagram.Section.Privacy" = "Privacy";
 
 "Nagram.SecondsInMessages" = "Show Seconds in Timestamps";
@@ -25,6 +25,11 @@
 "Nagram.UploadSpeedBoost" = "Upload Boost";
 "Nagram.Section.Network" = "Network Boost";
 "Nagram.VideoPIPSwipeUp" = "Swipe Up for Picture-in-Picture";
+"Nagram.ChatListSwipeAction" = "Chat List Swipe";
+"Nagram.ChatListSwipeAction.both" = "Switch + Quick Actions";
+"Nagram.ChatListSwipeAction.switch" = "Switch Folders";
+"Nagram.ChatListSwipeAction.quick" = "Quick Actions";
+"Nagram.ChatListSwipeAction.none" = "None";
 "Nagram.HideChannelBottomButton" = "Hide Channel Bottom Panel";
 "Nagram.HideSponsoredMessages" = "Hide Sponsored Messages";
 "Nagram.DisableScrollToNextChannel" = "Disable Swipe to Next Channel";
