@@ -106,11 +106,20 @@ typedef enum {
     
     UIView *_wrapperView;
     UIView *_startButton;
+    UIView *_fallbackLogoView; // MARK: NAGRAM
     
     bool _loadedView;
 }
 @end
 
+// MARK: NAGRAM
+static bool RMIntroUseStaticLogoFallback() {
+#if TARGET_OS_SIMULATOR && defined(__aarch64__)
+    return true;
+#else
+    return false;
+#endif
+}
 
 @implementation RMIntroViewController
 
@@ -230,8 +239,9 @@ typedef enum {
 }
 
 - (void)animateIn {
-    CGPoint logoTargetPosition = _glkView.center;
-    _glkView.center = CGPointMake(self.view.bounds.size.width / 2.0, self.view.bounds.size.height / 2.0);
+    UIView *logoView = _glkView != nil ? _glkView : _fallbackLogoView; // MARK: NAGRAM
+    CGPoint logoTargetPosition = logoView.center;
+    logoView.center = CGPointMake(self.view.bounds.size.width / 2.0, self.view.bounds.size.height / 2.0);
     
     RMIntroPageView *firstPage = (RMIntroPageView *)[_pageViews firstObject];
     CGPoint headerTargetPosition = firstPage.headerLabel.center;
@@ -246,35 +256,87 @@ typedef enum {
     CGPoint buttonTargetPosition = _startButton.center;
     _startButton.center = CGPointMake(buttonTargetPosition.x, buttonTargetPosition.y + 220.0);
     
-    _glkView.transform = CGAffineTransformMakeScale(0.66, 0.66);
+    logoView.transform = CGAffineTransformMakeScale(0.66, 0.66);
         
     [UIView animateWithDuration:0.65 delay:0.15 usingSpringWithDamping:1.2f initialSpringVelocity:0.0 options:kNilOptions animations:^{
-        _glkView.center = logoTargetPosition;
+        logoView.center = logoTargetPosition;
         firstPage.headerLabel.center = headerTargetPosition;
         firstPage.descriptionLabel.center = descriptionTargetPosition;
         _pageControl.center = pageControlTargetPosition;
         _startButton.center = buttonTargetPosition;
-        _glkView.transform = CGAffineTransformIdentity;
+        logoView.transform = CGAffineTransformIdentity;
     } completion:nil];
     
-    _glkView.alpha = 0.0;
+    logoView.alpha = 0.0;
     _pageScrollView.alpha = 0.0;
     _pageControl.alpha = 0.0;
     _startButton.alpha = 0.0;
     
     [UIView animateWithDuration:0.3 delay:0.15 options:kNilOptions animations:^{
-        _glkView.alpha = 1.0;
+        logoView.alpha = 1.0;
         _pageScrollView.alpha = 1.0;
         _pageControl.alpha = 1.0;
         _startButton.alpha = 1.0;
     } completion:nil];
 }
 
+- (void)loadStaticLogoFallback
+{
+    if (_fallbackLogoView != nil) {
+        return;
+    }
+    
+    bool isIpad = ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad);
+    
+    CGFloat size = 200;
+    if (isIpad)
+        size *= 1.2;
+    
+    int height = 50;
+    if (isIpad)
+        height += 138 / 2;
+    
+    UIView *logoView = [[UIView alloc] initWithFrame:CGRectMake(self.view.bounds.size.width / 2 - size / 2, height, size, size)];
+    logoView.backgroundColor = [UIColor clearColor];
+    logoView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+    logoView.userInteractionEnabled = false;
+    
+    UIImage *logoImage = nil;
+    for (NSString *fileName in @[@"Nagram@3x", @"Nagram@2x", @"Nagram60x60@2x"]) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:fileName ofType:@"png"];
+        if (path != nil) {
+            logoImage = [UIImage imageWithContentsOfFile:path];
+            if (logoImage != nil) {
+                break;
+            }
+        }
+    }
+    CGRect logoFrame = CGRectMake(floor((size - 148.0) / 2.0), floor((size - 148.0) / 2.0), 148.0, 148.0);
+    UIImageView *logoImageView = [[UIImageView alloc] initWithImage:logoImage];
+    logoImageView.contentMode = UIViewContentModeScaleAspectFill;
+    logoImageView.frame = CGRectMake(0.0, 0.0, logoFrame.size.width, logoFrame.size.height);
+    logoImageView.layer.cornerRadius = 34.0;
+    logoImageView.layer.masksToBounds = true;
+    
+    UIView *shadowView = [[UIView alloc] initWithFrame:logoFrame];
+    shadowView.backgroundColor = [UIColor clearColor];
+    shadowView.layer.shadowColor = [UIColor blackColor].CGColor;
+    shadowView.layer.shadowOpacity = 0.12;
+    shadowView.layer.shadowRadius = 16.0;
+    shadowView.layer.shadowOffset = CGSizeMake(0.0, 8.0);
+    [shadowView addSubview:logoImageView];
+    [logoView addSubview:shadowView];
+    
+    [self.view addSubview:logoView];
+    _fallbackLogoView = logoView;
+}
+
 - (void)loadGL
 {
-#if TARGET_OS_SIMULATOR && defined(__aarch64__)
-    return;
-#endif
+    if (RMIntroUseStaticLogoFallback()) { // MARK: NAGRAM
+        [self loadStaticLogoFallback];
+        return;
+    }
     
     if (/*[[UIApplication sharedApplication] applicationState] != UIApplicationStateBackground*/true && !_isOpenGLLoaded)
     {
@@ -311,6 +373,11 @@ typedef enum {
 
 - (void)freeGL
 {
+    if (_fallbackLogoView != nil) { // MARK: NAGRAM
+        [_fallbackLogoView removeFromSuperview];
+        _fallbackLogoView = nil;
+    }
+    
     if (!_isOpenGLLoaded)
         return;
 
@@ -390,6 +457,12 @@ typedef enum {
 }
 
 - (UIView *)createAnimationSnapshot {
+    if (_fallbackLogoView != nil) { // MARK: NAGRAM
+        UIView *snapshotView = [_fallbackLogoView snapshotViewAfterScreenUpdates:false];
+        snapshotView.frame = _fallbackLogoView.frame;
+        return snapshotView;
+    }
+    
     UIImage *image = _glkView.snapshot;
     UIImageView *imageView = [[UIImageView alloc] initWithFrame:_glkView.frame];
     imageView.image = image;
@@ -550,7 +623,8 @@ typedef enum {
     }
     
     _pageControl.frame = CGRectMake(0, pageControlY, self.view.bounds.size.width, 7);
-    _glkView.frame = CGRectChangedOriginY(_glkView.frame, glViewY - statusBarHeight);
+    UIView *logoView = _glkView != nil ? _glkView : _fallbackLogoView; // MARK: NAGRAM
+    logoView.frame = CGRectChangedOriginY(logoView.frame, glViewY - statusBarHeight);
     
     CGFloat startButtonWidth = MIN(430.0 - 48.0, self.view.bounds.size.width - 48.0f);
     UIView *startButton = self.createStartButton(startButtonWidth);
