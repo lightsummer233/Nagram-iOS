@@ -141,6 +141,10 @@ jobs:
             --output_path build-input/codesigning/profiles --filename nagram_appstore.mobileprovision
           rm -f /tmp/asc_key.json
 
+      - name: Force iOS 15 deployment target
+        run: |
+          sed -i '' 's/minimum_os_version = "[^"]*"/minimum_os_version = "15.0"/g' Telegram/BUILD
+
       - name: Build (release_arm64, signed)
         run: |
           set -euo pipefail
