@@ -960,7 +960,8 @@ private final class WidgetIntentHandler {
             //let presentationData = WidgetPresentationData.getForExtension()
             
             let error = NSError(domain: "Locked", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Open Telegram and enter passcode to edit widget."
+                // MARK: NAGRAM
+                NSLocalizedDescriptionKey: "Open Nagram and enter passcode to edit widget."
             ])
             
             completion(nil, error)
