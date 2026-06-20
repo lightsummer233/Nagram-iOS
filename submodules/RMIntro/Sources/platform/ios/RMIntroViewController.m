@@ -11,6 +11,8 @@
 #import "RMIntroViewController.h"
 #import "RMIntroPageView.h"
 
+#import <QuartzCore/QuartzCore.h>
+
 #include "animations.h"
 #include "objects.h"
 #include "texture_helper.h"
@@ -301,6 +303,15 @@ static bool RMIntroUseStaticLogoFallback() {
     logoView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
     logoView.userInteractionEnabled = false;
     
+    CGRect logoFrame = CGRectMake(floor((size - 148.0) / 2.0), floor((size - 148.0) / 2.0), 148.0, 148.0);
+    
+    UIView *shadowView = [[UIView alloc] initWithFrame:logoFrame];
+    shadowView.backgroundColor = [UIColor clearColor];
+    shadowView.layer.shadowColor = [UIColor blackColor].CGColor;
+    shadowView.layer.shadowOpacity = 0.12;
+    shadowView.layer.shadowRadius = 16.0;
+    shadowView.layer.shadowOffset = CGSizeMake(0.0, 8.0);
+    
     UIImage *logoImage = nil;
     for (NSString *fileName in @[@"Nagram@3x", @"Nagram@2x", @"Nagram60x60@2x"]) {
         NSString *path = [[NSBundle mainBundle] pathForResource:fileName ofType:@"png"];
@@ -311,21 +322,34 @@ static bool RMIntroUseStaticLogoFallback() {
             }
         }
     }
-    CGRect logoFrame = CGRectMake(floor((size - 148.0) / 2.0), floor((size - 148.0) / 2.0), 148.0, 148.0);
+    
+    UIView *iconView = [[UIView alloc] initWithFrame:CGRectMake(0.0, 0.0, logoFrame.size.width, logoFrame.size.height)];
+    iconView.layer.cornerRadius = 34.0;
+    iconView.layer.masksToBounds = true;
+    
     UIImageView *logoImageView = [[UIImageView alloc] initWithImage:logoImage];
     logoImageView.contentMode = UIViewContentModeScaleAspectFill;
-    logoImageView.frame = CGRectMake(0.0, 0.0, logoFrame.size.width, logoFrame.size.height);
-    logoImageView.layer.cornerRadius = 34.0;
-    logoImageView.layer.masksToBounds = true;
+    logoImageView.frame = iconView.bounds;
+    [iconView addSubview:logoImageView];
     
-    UIView *shadowView = [[UIView alloc] initWithFrame:logoFrame];
-    shadowView.backgroundColor = [UIColor clearColor];
-    shadowView.layer.shadowColor = [UIColor blackColor].CGColor;
-    shadowView.layer.shadowOpacity = 0.12;
-    shadowView.layer.shadowRadius = 16.0;
-    shadowView.layer.shadowOffset = CGSizeMake(0.0, 8.0);
-    [shadowView addSubview:logoImageView];
+    UIView *shineView = [[UIView alloc] initWithFrame:CGRectMake(-70.0, -28.0, 52.0, 204.0)];
+    shineView.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.18];
+    shineView.transform = CGAffineTransformMakeRotation(0.42);
+    [iconView addSubview:shineView];
+    
+    [shadowView addSubview:iconView];
     [logoView addSubview:shadowView];
+    
+    NSTimeInterval now = CACurrentMediaTime();
+    
+    CAKeyframeAnimation *shine = [CAKeyframeAnimation animationWithKeyPath:@"transform.translation.x"];
+    shine.values = @[@0.0, @0.0, @270.0, @270.0];
+    shine.keyTimes = @[@0.0, @0.24, @0.56, @1.0];
+    shine.duration = 3.2;
+    shine.beginTime = now;
+    shine.repeatCount = HUGE_VALF;
+    shine.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    [shineView.layer addAnimation:shine forKey:@"nagram.shine"];
     
     [self.view addSubview:logoView];
     _fallbackLogoView = logoView;
