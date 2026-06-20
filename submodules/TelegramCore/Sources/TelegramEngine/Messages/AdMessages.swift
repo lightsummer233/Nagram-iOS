@@ -2,6 +2,7 @@ import Foundation
 import Postbox
 import SwiftSignalKit
 import TelegramApi
+import NagramSettings
 
 private class AdMessagesHistoryContextImpl {
     final class CachedMessage: Equatable, Codable {
@@ -442,6 +443,7 @@ private class AdMessagesHistoryContextImpl {
 
     private var isActivated: Bool = false
     private let disposable = MetaDisposable()
+    private let settingsDisposable = MetaDisposable()
     
     init(queue: Queue, account: Account, peerId: EnginePeer.Id, messageId: EngineMessage.Id?, activateManually: Bool) {
         self.queue = queue
@@ -450,6 +452,29 @@ private class AdMessagesHistoryContextImpl {
         self.messageId = messageId
 
         self.stateValue = State(interPostInterval: nil, messages: [])
+        self.settingsDisposable.set((Signal<Void, NoError> { subscriber in
+            let observer = NotificationCenter.default.addObserver(
+                forName: UserDefaults.didChangeNotification,
+                object: UserDefaults.standard,
+                queue: nil,
+                using: { _ in
+                    subscriber.putNext(())
+                }
+            )
+            return ActionDisposable {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+        |> deliverOn(queue)).start(next: { [weak self] in
+            if NagramSettings.shared.hideSponsoredMessages { // MARK: NAGRAM — 开关变化后即时清空已加载赞助消息。
+                self?.clearStateForHiddenSponsoredMessages()
+            }
+        }))
+
+        if NagramSettings.shared.hideSponsoredMessages { // MARK: NAGRAM — 隐藏赞助消息时不读缓存、不拉取广告。
+            self.clearStateForHiddenSponsoredMessages()
+            return
+        }
 
         if messageId == nil {
             self.state.set(CachedState.getCached(postbox: account.postbox, peerId: peerId)
@@ -473,11 +498,26 @@ private class AdMessagesHistoryContextImpl {
     
     deinit {
         self.disposable.dispose()
+        self.settingsDisposable.dispose()
         self.maskAsSeenDisposables.dispose()
+    }
+
+    private func clearStateForHiddenSponsoredMessages() {
+        let emptyState = State(interPostInterval: nil, messages: [])
+        self.disposable.set(nil)
+        if self.stateValue != emptyState {
+            self.stateValue = emptyState
+        } else {
+            self.state.set(.single(emptyState))
+        }
     }
     
     func activate() {
         if self.isActivated {
+            return
+        }
+        if NagramSettings.shared.hideSponsoredMessages { // MARK: NAGRAM — 隐藏赞助消息时禁止触发广告网络请求。
+            self.clearStateForHiddenSponsoredMessages()
             return
         }
         self.isActivated = true

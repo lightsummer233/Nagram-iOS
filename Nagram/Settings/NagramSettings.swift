@@ -73,6 +73,9 @@ public final class NagramSettings {
     /// 隐藏频道底部面板按钮
     @NagramDefault("nagram.hideChannelBottomButton", false)
     public var hideChannelBottomButton: Bool
+    /// 隐藏赞助消息和代理赞助频道入口
+    @NagramDefault("nagram.hideSponsoredMessages", false)
+    public var hideSponsoredMessages: Bool
     /// 通话前确认（默认关 = 保持原生无确认）
     @NagramDefault("nagram.confirmCalls", false)
     public var confirmCalls: Bool

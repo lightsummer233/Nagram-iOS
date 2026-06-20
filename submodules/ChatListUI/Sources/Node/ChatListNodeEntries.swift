@@ -4,6 +4,7 @@ import TelegramCore
 import TelegramPresentationData
 import MergeLists
 import AccountContext
+import NagramSettings
 
 enum ChatListNodeEntryId: Hashable {
     case Header
@@ -857,6 +858,8 @@ func chatListNodeEntriesForView(view: EngineChatList, state: ChatListNodeState, 
                     
                     let promoInfo: ChatListNodeEntryPromoInfo
                     switch item.promoInfo.content {
+                    case .proxy where NagramSettings.shared.hideSponsoredMessages: // MARK: NAGRAM — 已缓存的代理赞助频道入口也要隐藏。
+                        continue
                     case .proxy:
                         promoInfo = .proxy
                     case let .psa(type, message):

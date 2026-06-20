@@ -26,6 +26,7 @@
 "Nagram.Section.Network" = "網路加速";
 "Nagram.VideoPIPSwipeUp" = "上滑開啟子母畫面";
 "Nagram.HideChannelBottomButton" = "隱藏頻道底部面板";
+"Nagram.HideSponsoredMessages" = "隱藏贊助訊息";
 "Nagram.DisableScrollToNextChannel" = "停用上滑至下一頻道";
 "Nagram.DisableScrollToNextTopic" = "停用上滑至下一主題";
 "Nagram.DisableGalleryCamera" = "停用圖庫內相機";

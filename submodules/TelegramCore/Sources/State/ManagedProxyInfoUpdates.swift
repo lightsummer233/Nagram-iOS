@@ -3,6 +3,7 @@ import TelegramApi
 import Postbox
 import SwiftSignalKit
 import MtProtoKit
+import NagramSettings
 
 
 public final class PromoChatListItem: AdditionalChatListItem {
@@ -220,6 +221,12 @@ func _internal_fetchPromoInfo(accountPeerId: EnginePeer.Id, postbox: Postbox, ne
                     kind = .psa(type: psaType, message: psaMessage)
                 } else if ((flags & 1) << 0) != 0 {
                     kind = .proxy
+                }
+                switch kind {
+                case .proxy where NagramSettings.shared.hideSponsoredMessages: // MARK: NAGRAM — 隐藏赞助消息时不写入代理赞助频道入口。
+                    kind = nil
+                default:
+                    break
                 }
                 
                 var additionalChatListItems: [AdditionalChatListItem] = []
