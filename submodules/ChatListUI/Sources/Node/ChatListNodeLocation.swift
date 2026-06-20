@@ -142,12 +142,12 @@ public func nagramChatListFilterRecentPeerIds(accountPeerId: EnginePeer.Id, filt
 private func nagramRecentChatsFilterUpdates(accountPeerId: Int64, filterId: Int32) -> Signal<Void, NoError> {
     let initial = Signal<Void, NoError>.single(Void())
     let changes = Signal<Void, NoError> { subscriber in
-        let recentChatsObserver = NotificationCenter.default.addObserver(forName: .nagramRecentChatsDidChange, object: nil, queue: nil) { notification in
+        let recentChatsObserver = NotificationCenter.default.addObserver(forName: .nagramRecentChatsDidChange, object: nil, queue: .main) { notification in
             if let updatedAccountPeerId = notification.userInfo?["accountPeerId"] as? Int64, updatedAccountPeerId == accountPeerId {
                 subscriber.putNext(Void())
             }
         }
-        let folderSettingsObserver = NotificationCenter.default.addObserver(forName: .nagramRecentChatFolderSettingsDidChange, object: nil, queue: nil) { notification in
+        let folderSettingsObserver = NotificationCenter.default.addObserver(forName: .nagramRecentChatFolderSettingsDidChange, object: nil, queue: .main) { notification in
             if let updatedAccountPeerId = notification.userInfo?["accountPeerId"] as? Int64, updatedAccountPeerId == accountPeerId,
                let updatedFilterId = notification.userInfo?["filterId"] as? Int32,
                updatedFilterId == filterId {

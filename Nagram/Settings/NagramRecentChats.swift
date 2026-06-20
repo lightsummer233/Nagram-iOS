@@ -73,6 +73,9 @@ public extension NagramSettings {
             return
         }
         var values = self.recentChatIds(accountPeerId: accountPeerId)
+        if values.first == peerId {
+            return
+        }
         values.removeAll(where: { $0 == peerId })
         values.insert(peerId, at: 0)
         if values.count > self.recentChatsLimit {
