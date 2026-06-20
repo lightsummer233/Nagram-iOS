@@ -713,6 +713,7 @@ private struct NotificationContent: CustomStringConvertible {
         }
 
         if self.shouldSuppressAsEmptyControlNotification && content.title.isEmpty && content.subtitle.isEmpty && content.body.isEmpty {
+            content.title = " "
             content.threadIdentifier = emptyControlNotificationThreadIdentifier
             content.sound = nil
             if #available(iOSApplicationExtension 15.0, iOS 15.0, *) {
