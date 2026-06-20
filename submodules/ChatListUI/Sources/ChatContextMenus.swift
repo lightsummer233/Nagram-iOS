@@ -15,6 +15,7 @@ import TelegramPresentationData
 import TelegramStringFormatting
 import ChatTimerScreen
 import NotificationPeerExceptionController
+import NagramSettings // MARK: NAGRAM
 
 func archiveContextMenuItems(context: AccountContext, group: EngineChatList.Group, chatListController: ChatListControllerImpl?) -> Signal<[ContextMenuItem], NoError> {
     let presentationData = context.sharedContext.currentPresentationData.with({ $0 })
@@ -202,6 +203,18 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
                         if case let .chatList(currentFilter) = source {
                             if let currentFilter = currentFilter, case let .filter(id, title, emoticon, data) = currentFilter {
                                 items.append(.action(ContextMenuActionItem(text: strings.ChatList_Context_RemoveFromFolder, icon: { theme in generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/RemoveFromFolder"), color: theme.contextMenu.primaryColor) }, action: { c, _ in
+                                    let nagramAccountPeerId = context.account.peerId.toInt64() // MARK: NAGRAM
+                                    let nagramPeerId = peer.id.toInt64()
+                                    if NagramSettings.shared.isRecentChatFolderEnabled(accountPeerId: nagramAccountPeerId, filterId: id),
+                                       NagramSettings.shared.recentChatIds(accountPeerId: nagramAccountPeerId).contains(nagramPeerId) {
+                                        NagramSettings.shared.removeRecentChatId(nagramPeerId, accountPeerId: nagramAccountPeerId)
+                                        c?.dismiss(completion: {
+                                            chatListController?.present(UndoOverlayController(presentationData: presentationData, content: .chatRemovedFromFolder(context: context, chatTitle: peer.displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder), folderTitle: title.rawAttributedString), elevatedLayout: false, animateInAsReplacement: true, action: { _ in
+                                                return false
+                                            }), in: .current)
+                                        })
+                                        return
+                                    }
                                     let _ = (context.engine.peers.updateChatListFiltersInteractively { filters in
                                         var filters = filters
                                         for i in 0 ..< filters.count {
@@ -229,8 +242,8 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
                         if !hasRemoveFromFolder && peerGroup != nil {
                             var hasFolders = false
                             
-                            for case let .filter(_, _, _, data) in filters {
-                                let predicate = chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId)
+                            for case let .filter(filterId, _, _, data) in filters {
+                                let predicate = chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: context.account.peerId, filterId: filterId))
                                 if predicate.includes(peer: peer._asPeer(), groupId: .root, isRemovedFromTotalUnreadCount: isMuted, isUnread: isUnread, isContact: isContact, messageTagSummaryResult: false) {
                                     continue
                                 }
@@ -254,8 +267,8 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
                                     updatedItems.append(.separator)
                                     
                                     for filter in filters {
-                                        if case let .filter(_, title, _, data) = filter {
-                                            let predicate = chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId)
+                                        if case let .filter(filterId, title, _, data) = filter {
+                                            let predicate = chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: context.account.peerId, filterId: filterId))
                                             if predicate.includes(peer: peer._asPeer(), groupId: .root, isRemovedFromTotalUnreadCount: isMuted, isUnread: isUnread, isContact: isContact, messageTagSummaryResult: false) {
                                                 continue
                                             }

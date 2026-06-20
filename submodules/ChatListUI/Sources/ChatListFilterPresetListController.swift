@@ -13,6 +13,7 @@ import ChatListFilterSettingsHeaderItem
 import PremiumUI
 import UndoUI
 import ChatFolderLinkPreviewScreen
+import NagramSettings // MARK: NAGRAM
 
 private final class ChatListFilterPresetListControllerArguments {
     let context: AccountContext
@@ -510,6 +511,7 @@ public func chatListFilterPresetListController(context: AccountContext, mode: Ch
                                 return filters
                             }
                             |> deliverOnMainQueue).start()
+                            NagramSettings.shared.setRecentChatFolderEnabled(false, accountPeerId: context.account.peerId.toInt64(), filterId: id) // MARK: NAGRAM — 清理本地最近文件夹状态
                         } else {
                             let previewScreen = ChatFolderLinkPreviewScreen(
                                 context: context,
@@ -520,7 +522,10 @@ public func chatListFilterPresetListController(context: AccountContext, mode: Ch
                                     peers: filteredPeers,
                                     alreadyMemberPeerIds: Set(),
                                     memberCounts: memberCounts
-                                )
+                                ),
+                                completion: {
+                                    NagramSettings.shared.setRecentChatFolderEnabled(false, accountPeerId: context.account.peerId.toInt64(), filterId: id) // MARK: NAGRAM — 清理本地最近文件夹状态
+                                }
                             )
                             pushControllerImpl?(previewScreen)
                         }
@@ -551,6 +556,7 @@ public func chatListFilterPresetListController(context: AccountContext, mode: Ch
                             return filters
                         }
                         |> deliverOnMainQueue).startStandalone()
+                        NagramSettings.shared.setRecentChatFolderEnabled(false, accountPeerId: context.account.peerId.toInt64(), filterId: id) // MARK: NAGRAM — 清理本地最近文件夹状态
                     })
                 ])
                 presentControllerImpl?(alertController)

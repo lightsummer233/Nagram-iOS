@@ -16,6 +16,7 @@ enum ChatListFilterCategoryIcon {
     case groups
     case channels
     case bots
+    case recent
     case muted
     case read
     case archived
@@ -260,6 +261,9 @@ class ChatListFilterPresetCategoryItemNode: ItemListRevealOptionsItemNode, ItemL
                         case .bots:
                             color = .violet
                             imageName = "Chat List/Filters/Bot"
+                        case .recent:
+                            color = .blue
+                            imageName = "Chat List/Filters/Read"
                         case .muted:
                             color = .red
                             imageName = "Chat List/Filters/Muted"

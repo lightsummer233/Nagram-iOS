@@ -6946,6 +6946,82 @@ public final class PeerInfoScreenImpl: ViewController, PeerInfoScreen, KeyShortc
         })
     }
     
+    // MARK: NAGRAM — 最近会话返回菜单
+    public static func displayNagramRecentChatsMenu(context: AccountContext, parentController: ViewController, sourceView: UIView, navigationController: NavigationController, gesture: ContextGesture, useBackAnimation: Bool, fallback: @escaping () -> Void) {
+        guard NagramSettings.shared.recentChatsEnabled else {
+            fallback()
+            return
+        }
+        
+        let peerIds = NagramSettings.shared.recentChatIds(accountPeerId: context.account.peerId.toInt64(), limit: 25).map { EnginePeer.Id($0) }
+        guard !peerIds.isEmpty else {
+            fallback()
+            return
+        }
+        
+        let peerMap = EngineDataMap(
+            Set(peerIds).map(TelegramEngine.EngineData.Item.Peer.Peer.init)
+        )
+        let _ = (context.engine.data.get(
+            peerMap
+        )
+        |> deliverOnMainQueue).startStandalone(next: { [weak parentController, weak sourceView, weak navigationController] peerMap in
+            guard let parentController, let sourceView else {
+                return
+            }
+            
+            let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+            let avatarSize = CGSize(width: 28.0, height: 28.0)
+            var items: [ContextMenuItem] = []
+            
+            for peerId in peerIds {
+                guard let maybePeer = peerMap[peerId], let peer = maybePeer else {
+                    continue
+                }
+                
+                let isSavedMessages = peer.id == context.account.peerId
+                let title: String
+                let iconSource: ContextMenuActionItemIconSource?
+                if isSavedMessages {
+                    title = presentationData.strings.DialogList_SavedMessages
+                    iconSource = nil
+                } else {
+                    title = peer.displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
+                    iconSource = ContextMenuActionItemIconSource(size: avatarSize, signal: peerAvatarCompleteImage(account: context.account, peer: peer, size: avatarSize))
+                }
+                
+                items.append(.action(ContextMenuActionItem(text: title, icon: { _ in
+                    if isSavedMessages {
+                        return generateAvatarImage(size: avatarSize, icon: savedMessagesIcon, iconScale: 0.5, color: .blue)
+                    }
+                    return nil
+                }, iconSource: iconSource, action: { _, f in
+                    f(.default)
+                    
+                    guard let navigationController else {
+                        return
+                    }
+                    
+                    context.sharedContext.navigateToChatController(NavigateToChatControllerParams(
+                        navigationController: navigationController,
+                        context: context,
+                        chatLocation: .peer(peer),
+                        useBackAnimation: useBackAnimation,
+                        animated: true
+                    ))
+                })))
+            }
+            
+            if items.isEmpty {
+                fallback()
+                return
+            }
+            
+            let contextController = makeContextController(presentationData: presentationData, source: .reference(PeerInfoControllerContextReferenceContentSource(controller: parentController, sourceView: sourceView, insets: UIEdgeInsets(), contentInsets: UIEdgeInsets(top: 0.0, left: -15.0, bottom: 0.0, right: -15.0))), items: .single(ContextController.Items(content: .list(items))), gesture: gesture)
+            parentController.presentInGlobalOverlay(contextController)
+        })
+    }
+    
     public static func displayChatNavigationMenu(context: AccountContext, chatNavigationStack: [ChatNavigationStackItem], nextFolderId: Int32?, parentController: ViewController, backButtonView: UIView, navigationController: NavigationController, gesture: ContextGesture) {
         let peerMap = EngineDataMap(
             Set(chatNavigationStack.map(\.peerId)).map(TelegramEngine.EngineData.Item.Peer.Peer.init)
@@ -7052,7 +7128,8 @@ public final class PeerInfoScreenImpl: ViewController, PeerInfoScreen, KeyShortc
             chatNavigationStack = summary.peerNavigationItems.filter({ $0 != ChatNavigationStackItem(peerId: self.peerId, threadId: self.chatLocation.threadId) })
         }
         
-        if !chatNavigationStack.isEmpty, let backButtonNode = self.navigationBar?.backButtonNode as? ContextControllerSourceNode {
+        let hasNagramRecentChats = NagramSettings.shared.recentChatsEnabled && !NagramSettings.shared.recentChatIds(accountPeerId: self.context.account.peerId.toInt64(), limit: 1).isEmpty // MARK: NAGRAM
+        if (!chatNavigationStack.isEmpty || hasNagramRecentChats), let backButtonNode = self.navigationBar?.backButtonNode as? ContextControllerSourceNode {
             backButtonNode.isGestureEnabled = true
             backButtonNode.activated = { [weak self] gesture, _ in
                 guard let strongSelf = self, let backButtonNode = strongSelf.navigationBar?.backButtonNode, let navigationController = strongSelf.navigationController as? NavigationController else {
@@ -7060,14 +7137,29 @@ public final class PeerInfoScreenImpl: ViewController, PeerInfoScreen, KeyShortc
                     return
                 }
                 
-                PeerInfoScreenImpl.displayChatNavigationMenu(
+                let fallback = {
+                    if chatNavigationStack.isEmpty {
+                        gesture.cancel()
+                    } else {
+                        PeerInfoScreenImpl.displayChatNavigationMenu(
+                            context: strongSelf.context,
+                            chatNavigationStack: chatNavigationStack,
+                            nextFolderId: nil,
+                            parentController: strongSelf,
+                            backButtonView: backButtonNode.view,
+                            navigationController: navigationController,
+                            gesture: gesture
+                        )
+                    }
+                }
+                PeerInfoScreenImpl.displayNagramRecentChatsMenu(
                     context: strongSelf.context,
-                    chatNavigationStack: chatNavigationStack,
-                    nextFolderId: nil,
                     parentController: strongSelf,
-                    backButtonView: backButtonNode.view,
+                    sourceView: backButtonNode.view,
                     navigationController: navigationController,
-                    gesture: gesture
+                    gesture: gesture,
+                    useBackAnimation: true,
+                    fallback: fallback
                 )
             }
         }

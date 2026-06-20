@@ -121,3 +121,5 @@
 "Nagram.HideTabBarSettings" = "隱藏設定";
 "Nagram.ShowTabBarSearch" = "隱藏頂部搜尋";
 "Nagram.WideTabBar" = "顯示寬底欄";
+"Nagram.RecentChats" = "快速返回最近會話";
+"Nagram.ChatListFolder.CategoryRecent" = "最近";

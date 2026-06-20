@@ -25,6 +25,8 @@ import ChatEntityKeyboardInputNode
 import ComponentFlow
 import ChatPresentationInterfaceState
 import ComponentDisplayAdapters
+import NagramSettings // MARK: NAGRAM
+import NagramStrings // MARK: NAGRAM
 
 private enum FilterSection: Int32, Hashable {
     case include
@@ -146,8 +148,9 @@ private enum ChatListFilterIncludeCategory: Int32, CaseIterable {
     case groups
     case channels
     case bots
+    case recent
     
-    var category: ChatListFilterPeerCategories {
+    var category: ChatListFilterPeerCategories? {
         switch self {
         case .contacts:
             return .contacts
@@ -159,6 +162,8 @@ private enum ChatListFilterIncludeCategory: Int32, CaseIterable {
             return .channels
         case .bots:
             return .bots
+        case .recent:
+            return nil
         }
     }
     
@@ -174,6 +179,8 @@ private enum ChatListFilterIncludeCategory: Int32, CaseIterable {
             return strings.ChatListFolder_CategoryChannels
         case .bots:
             return strings.ChatListFolder_CategoryBots
+        case .recent:
+            return ngI18n("Nagram.ChatListFolder.CategoryRecent", strings.baseLanguageCode)
         }
     }
 }
@@ -208,6 +215,8 @@ private extension ChatListFilterCategoryIcon {
             self = .channels
         case .bots:
             self = .bots
+        case .recent:
+            self = .recent
         }
     }
     
@@ -555,6 +564,7 @@ private struct ChatListFilterPresetControllerState: Equatable {
     var color: PeerNameColor?
     var colorUpdated: Bool = false
     var includeCategories: ChatListFilterPeerCategories
+    var includeRecent: Bool
     var excludeMuted: Bool
     var excludeRead: Bool
     var excludeArchived: Bool
@@ -579,13 +589,14 @@ private struct ChatListFilterPresetControllerState: Equatable {
         let defaultExcludeRead = false
         
         if self.includeCategories == defaultCategories &&
+           !self.includeRecent &&
            self.excludeArchived == defaultExcludeArchived &&
            self.excludeMuted == defaultExcludeMuted &&
            self.excludeRead == defaultExcludeRead {
            return false
         }
         
-        if self.includeCategories.isEmpty && self.additionallyIncludePeers.isEmpty {
+        if self.includeCategories.isEmpty && self.additionallyIncludePeers.isEmpty && !self.includeRecent {
             return false
         }
         
@@ -610,7 +621,15 @@ private func chatListFilterPresetControllerEntries(context: AccountContext, pres
     
     var includeCategoryIndex = 0
     for category in ChatListFilterIncludeCategory.allCases {
-        if state.includeCategories.contains(category.category) {
+        let isSelected: Bool
+        if case .recent = category {
+            isSelected = state.includeRecent
+        } else if let categoryValue = category.category {
+            isSelected = state.includeCategories.contains(categoryValue)
+        } else {
+            isSelected = false
+        }
+        if isSelected {
             entries.append(.includeCategory(index: includeCategoryIndex, category: category, title: category.title(strings: presentationData.strings), isRevealed: state.revealedItemId == .includeCategory(category)))
         }
         includeCategoryIndex += 1
@@ -717,6 +736,7 @@ private enum AdditionalCategoryId: Int {
     case groups
     case channels
     case bots
+    case recent
 }
 
 private enum AdditionalExcludeCategoryId: Int {
@@ -726,10 +746,11 @@ private enum AdditionalExcludeCategoryId: Int {
 }
 
 func chatListFilterAddChatsController(context: AccountContext, filter: ChatListFilter, allFilters: [ChatListFilter], limit: Int32, premiumLimit: Int32, isPremium: Bool, presentUndo: @escaping (UndoOverlayContent) -> Void) -> ViewController {
-    return internalChatListFilterAddChatsController(context: context, filter: filter, allFilters: allFilters, applyAutomatically: true, limit: limit, premiumLimit: premiumLimit, isPremium: isPremium, updated: { _ in }, presentUndo: presentUndo)
+    let includeRecent = NagramSettings.shared.isRecentChatFolderEnabled(accountPeerId: context.account.peerId.toInt64(), filterId: filter.id)
+    return internalChatListFilterAddChatsController(context: context, filter: filter, includeRecent: includeRecent, allFilters: allFilters, applyAutomatically: true, limit: limit, premiumLimit: premiumLimit, isPremium: isPremium, updated: { _, _ in }, presentUndo: presentUndo)
 }
     
-private func internalChatListFilterAddChatsController(context: AccountContext, filter: ChatListFilter, allFilters: [ChatListFilter], applyAutomatically: Bool, limit: Int32, premiumLimit: Int32, isPremium: Bool, updated: @escaping (ChatListFilter) -> Void, presentUndo: @escaping (UndoOverlayContent) -> Void) -> ViewController {
+private func internalChatListFilterAddChatsController(context: AccountContext, filter: ChatListFilter, includeRecent: Bool, allFilters: [ChatListFilter], applyAutomatically: Bool, limit: Int32, premiumLimit: Int32, isPremium: Bool, updated: @escaping (ChatListFilter, Bool) -> Void, presentUndo: @escaping (UndoOverlayContent) -> Void) -> ViewController {
     guard case let .filter(_, _, _, filterData) = filter else {
         return ViewController(navigationBarPresentationData: nil)
     }
@@ -777,6 +798,12 @@ private func internalChatListFilterAddChatsController(context: AccountContext, f
                 icon: generateAvatarImage(size: CGSize(width: 40.0, height: 40.0), icon: generateTintedImage(image: UIImage(bundleImageName: "Chat List/Filters/Bot"), color: .white), cornerRadius: 12.0, color: .violet),
                 smallIcon: generateAvatarImage(size: CGSize(width: 22.0, height: 22.0), icon: generateTintedImage(image: UIImage(bundleImageName: "Chat List/Filters/Bot"), color: .white), iconScale: 0.6, cornerRadius: 6.0, circleCorners: true, color: .violet),
                 title: presentationData.strings.ChatListFolder_CategoryBots
+            ),
+            ChatListNodeAdditionalCategory(
+                id: AdditionalCategoryId.recent.rawValue,
+                icon: generateAvatarImage(size: CGSize(width: 40.0, height: 40.0), icon: generateTintedImage(image: UIImage(bundleImageName: "Chat List/Filters/Read"), color: .white), cornerRadius: 12.0, color: .blue),
+                smallIcon: generateAvatarImage(size: CGSize(width: 22.0, height: 22.0), icon: generateTintedImage(image: UIImage(bundleImageName: "Chat List/Filters/Read"), color: .white), iconScale: 0.6, cornerRadius: 6.0, circleCorners: true, color: .blue),
+                title: ngI18n("Nagram.ChatListFolder.CategoryRecent", presentationData.strings.baseLanguageCode)
             )
         ]
         
@@ -784,6 +811,9 @@ private func internalChatListFilterAddChatsController(context: AccountContext, f
             if filterData.categories.contains(category) {
                 selectedCategories.insert(id.rawValue)
             }
+        }
+        if includeRecent {
+            selectedCategories.insert(AdditionalCategoryId.recent.rawValue)
         }
     }
     
@@ -863,8 +893,11 @@ private func internalChatListFilterAddChatsController(context: AccountContext, f
         }
         
         var categories: ChatListFilterPeerCategories = []
+        var includeRecent = false
         for id in additionalCategoryIds {
-            if let index = categoryMapping.firstIndex(where: { $0.1.rawValue == id }) {
+            if id == AdditionalCategoryId.recent.rawValue {
+                includeRecent = true
+            } else if let index = categoryMapping.firstIndex(where: { $0.1.rawValue == id }) {
                 categories.insert(categoryMapping[index].0)
             } else {
                 assertionFailure()
@@ -888,6 +921,7 @@ private func internalChatListFilterAddChatsController(context: AccountContext, f
                 return filters
             }
             |> deliverOnMainQueue).start(next: { _ in
+                NagramSettings.shared.setRecentChatFolderEnabled(includeRecent, accountPeerId: context.account.peerId.toInt64(), filterId: filter.id)
                 controller?.dismiss()
             })
         } else {
@@ -899,7 +933,7 @@ private func internalChatListFilterAddChatsController(context: AccountContext, f
                 updatedData.excludePeers = updatedData.excludePeers.filter { !updatedData.includePeers.peers.contains($0) }
                 filter = .filter(id: id, title: title, emoticon: emoticon, data: updatedData)
             }
-            updated(filter)
+            updated(filter, includeRecent)
             controller?.dismiss()
         }
     })
@@ -1396,12 +1430,19 @@ public func chatListFilterPresetController(context: AccountContext, currentPrese
     } else {
         initialName = ChatFolderTitle(text: "", entities: [], enableAnimations: true)
     }
+    let initialIncludeRecent = initialPreset.flatMap { preset -> Bool? in
+        if preset.data?.isShared == true {
+            return false
+        }
+        return NagramSettings.shared.isRecentChatFolderEnabled(accountPeerId: context.account.peerId.toInt64(), filterId: preset.id)
+    } ?? false
     var initialState = ChatListFilterPresetControllerState(
         isExisting: initialPreset?.id != nil,
         name: initialName,
         changedName: initialPreset != nil,
         color: initialPreset?.data?.color,
         includeCategories: initialPreset?.data?.categories ?? [],
+        includeRecent: initialIncludeRecent,
         excludeMuted: initialPreset?.data?.excludeMuted ?? false,
         excludeRead: initialPreset?.data?.excludeRead ?? false,
         excludeArchived: initialPreset?.data?.excludeArchived ?? false,
@@ -1434,7 +1475,9 @@ public func chatListFilterPresetController(context: AccountContext, currentPrese
                 var includePeers = ChatListFilterIncludePeers()
                 includePeers.setPeers(state.additionallyIncludePeers)
                 let filter: ChatListFilter = .filter(id: initialPreset?.id ?? -1, title: state.name, emoticon: initialPreset?.emoticon, data: ChatListFilterData(isShared: initialPreset?.data?.isShared ?? false, hasSharedLinks: initialPreset?.data?.hasSharedLinks ?? false, categories: state.includeCategories, excludeMuted: state.excludeMuted, excludeRead: state.excludeRead, excludeArchived: state.excludeArchived, includePeers: includePeers, excludePeers: state.additionallyExcludePeers, color: state.color))
-                if let data = filter.data {
+                if state.includeRecent && state.includeCategories.isEmpty && state.additionallyIncludePeers.isEmpty && !state.excludeMuted && !state.excludeRead && state.excludeArchived {
+                    state.name = ChatFolderTitle(text: ngI18n("Nagram.ChatListFolder.CategoryRecent", presentationData.strings.baseLanguageCode), entities: [], enableAnimations: true)
+                } else if let data = filter.data {
                     switch chatListFilterType(data) {
                     case .generic:
                         state.name = initialName
@@ -1630,13 +1673,14 @@ public func chatListFilterPresetController(context: AccountContext, currentPrese
                 
                 let _ = (context.engine.peers.currentChatListFilters()
                 |> deliverOnMainQueue).start(next: { filters in
-                    let controller = internalChatListFilterAddChatsController(context: context, filter: filter, allFilters: filters, applyAutomatically: false, limit: limits.maxFolderChatsCount, premiumLimit: premiumLimits.maxFolderChatsCount, isPremium: isPremium, updated: { filter in
+                    let controller = internalChatListFilterAddChatsController(context: context, filter: filter, includeRecent: state.includeRecent, allFilters: filters, applyAutomatically: false, limit: limits.maxFolderChatsCount, premiumLimit: premiumLimits.maxFolderChatsCount, isPremium: isPremium, updated: { filter, includeRecent in
                         skipStateAnimation = true
                         updateState { state in
                             var state = state
                             state.additionallyIncludePeers = filter.data?.includePeers.peers ?? []
                             state.additionallyExcludePeers = filter.data?.excludePeers ?? []
                             state.includeCategories = filter.data?.categories ?? []
+                            state.includeRecent = includeRecent
                             return state
                         }
                     }, presentUndo: { content in
@@ -1719,7 +1763,11 @@ public func chatListFilterPresetController(context: AccountContext, currentPrese
         deleteIncludeCategory: { category in
             updateState { state in
                 var state = state
-                state.includeCategories.remove(category.category)
+                if case .recent = category {
+                    state.includeRecent = false
+                } else if let categoryValue = category.category {
+                    state.includeCategories.remove(categoryValue)
+                }
                 return state
             }
         },
@@ -2002,11 +2050,13 @@ public func chatListFilterPresetController(context: AccountContext, currentPrese
             var includePeers = ChatListFilterIncludePeers()
             includePeers.setPeers(state.additionallyIncludePeers)
             
+            var appliedFilterId: Int32?
             let _ = (context.engine.peers.updateChatListFiltersInteractively { filters in
                 var filterId = currentPreset?.id ?? -1
                 if currentPreset == nil {
                     filterId = context.engine.peers.generateNewChatListFilterId(filters: filters)
                 }
+                appliedFilterId = filterId
                 var updatedFilter: ChatListFilter = .filter(id: filterId, title: state.name, emoticon: currentPreset?.emoticon, data: ChatListFilterData(isShared: currentPreset?.data?.isShared ?? false, hasSharedLinks: currentPreset?.data?.hasSharedLinks ?? false, categories: state.includeCategories, excludeMuted: state.excludeMuted, excludeRead: state.excludeRead, excludeArchived: state.excludeArchived, includePeers: includePeers, excludePeers: state.additionallyExcludePeers, color: state.color))
                 
                 var filters = filters
@@ -2039,6 +2089,9 @@ public func chatListFilterPresetController(context: AccountContext, currentPrese
                 return filters
             }
             |> deliverOnMainQueue).start(next: { filters in
+                if let appliedFilterId {
+                    NagramSettings.shared.setRecentChatFolderEnabled(state.includeRecent, accountPeerId: context.account.peerId.toInt64(), filterId: appliedFilterId)
+                }
                 updated(filters)
                 
                 if waitForSync {
@@ -2217,7 +2270,8 @@ public func chatListFilterPresetController(context: AccountContext, currentPrese
                 var includePeers = ChatListFilterIncludePeers()
                 includePeers.setPeers(state.additionallyIncludePeers)
                 let filter: ChatListFilter = .filter(id: currentPreset.id, title: state.name, emoticon: currentPreset.emoticon, data: ChatListFilterData(isShared: currentPreset.data?.isShared ?? false, hasSharedLinks: currentPreset.data?.hasSharedLinks ?? false, categories: state.includeCategories, excludeMuted: state.excludeMuted, excludeRead: state.excludeRead, excludeArchived: state.excludeArchived, includePeers: includePeers, excludePeers: state.additionallyExcludePeers, color: state.color))
-                if currentPresetWithoutPinnedPeers != filter {
+                let currentIncludeRecent = currentData.isShared ? false : NagramSettings.shared.isRecentChatFolderEnabled(accountPeerId: context.account.peerId.toInt64(), filterId: currentId)
+                if currentPresetWithoutPinnedPeers != filter || currentIncludeRecent != state.includeRecent {
                     displaySaveAlert()
                     f(false)
                     return

@@ -134,6 +134,7 @@ swift_library(
         # MARK: NAGRAM
         "//Nagram/SettingsSignal:NagramSettingsSignal",
         "//Nagram/Settings:NagramSettings",
+        "//Nagram/Strings:NagramStrings",
     ],
     visibility = [
         "//visibility:public",

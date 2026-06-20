@@ -121,3 +121,5 @@
 "Nagram.HideTabBarSettings" = "設定を非表示";
 "Nagram.ShowTabBarSearch" = "上部検索を非表示";
 "Nagram.WideTabBar" = "幅広のタブバーを表示";
+"Nagram.RecentChats" = "最近のチャットへ素早く戻る";
+"Nagram.ChatListFolder.CategoryRecent" = "最近";

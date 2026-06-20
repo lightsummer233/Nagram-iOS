@@ -1151,7 +1151,11 @@ extension ChatControllerImpl {
                             let accountPeerId = context.account.peerId
                             strongSelf.nextChannelToReadDisposable = (combineLatest(queue: .mainQueue(),
                                 context.engine.peers.getNextUnreadChannel(peerId: channel.id, chatListFilterId: currentChatListFilter, getFilterPredicate: { data in
-                                    return chatListFilterPredicate(filter: data, accountPeerId: accountPeerId)
+                                    if let currentChatListFilter {
+                                        return chatListFilterPredicate(filter: data, accountPeerId: accountPeerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: accountPeerId, filterId: currentChatListFilter))
+                                    } else {
+                                        return chatListFilterPredicate(filter: data, accountPeerId: accountPeerId)
+                                    }
                                 }),
                                 ApplicationSpecificNotice.getNextChatSuggestionTip(accountManager: context.sharedContext.accountManager)
                             )

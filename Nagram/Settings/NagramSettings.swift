@@ -139,6 +139,9 @@ public final class NagramSettings {
     /// 对话列表横滑行为（"both" / "switch" / "quick" / "none"）
     @NagramDefault("nagram.chatListSwipeAction", NagramChatListSwipeAction.both.rawValue)
     public var chatListSwipeAction: String
+    /// 最近会话快捷入口
+    @NagramDefault("nagram.recentChatsEnabled", false)
+    public var recentChatsEnabled: Bool
     /// 资料页显示用户数字 ID（默认关 = 保持原生）
     @NagramDefault("nagram.showProfileId", false)
     public var showProfileId: Bool

@@ -15,6 +15,7 @@ import DeviceAccess
 import TextFormat
 import TelegramBaseController
 import AccountContext
+import NagramSettings // MARK: NAGRAM
 import TelegramStringFormatting
 import OverlayStatusController
 import DeviceLocationManager
@@ -666,6 +667,9 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
         self.currentChatListFilter = chatListFilter
         self.chatNavigationStack = chatNavigationStack
         self.customChatNavigationStack = customChatNavigationStack
+        if let peerId = chatLocation.peerId { // MARK: NAGRAM — 记录进入的会话
+            NagramSettings.shared.addRecentChatId(peerId.toInt64(), accountPeerId: context.account.peerId.toInt64())
+        }
         
         self.forcedTheme = params?.forcedTheme
         self.forcedNavigationBarTheme = params?.forcedNavigationBarTheme
@@ -7450,7 +7454,8 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             }
         }
         
-        if !chatNavigationStack.isEmpty, let backButtonNode = self.chatDisplayNode.navigationBar?.backButtonNode as? ContextControllerSourceNode {
+        let hasNagramRecentChats = NagramSettings.shared.recentChatsEnabled && !NagramSettings.shared.recentChatIds(accountPeerId: self.context.account.peerId.toInt64(), limit: 1).isEmpty // MARK: NAGRAM
+        if (!chatNavigationStack.isEmpty || hasNagramRecentChats), let backButtonNode = self.chatDisplayNode.navigationBar?.backButtonNode as? ContextControllerSourceNode {
             backButtonNode.isGestureEnabled = true
             backButtonNode.activated = { [weak self] gesture, _ in
                 guard let strongSelf = self, let backButtonNode = strongSelf.chatDisplayNode.navigationBar?.backButtonNode, let navigationController = strongSelf.effectiveNavigationController else {
@@ -7458,14 +7463,29 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                     return
                 }
                 let nextFolderId: Int32? = strongSelf.currentChatListFilter
-                PeerInfoScreenImpl.displayChatNavigationMenu(
+                let fallback = {
+                    if chatNavigationStack.isEmpty {
+                        gesture.cancel()
+                    } else {
+                        PeerInfoScreenImpl.displayChatNavigationMenu(
+                            context: strongSelf.context,
+                            chatNavigationStack: chatNavigationStack,
+                            nextFolderId: nextFolderId,
+                            parentController: strongSelf,
+                            backButtonView: backButtonNode.view,
+                            navigationController: navigationController,
+                            gesture: gesture
+                        )
+                    }
+                }
+                PeerInfoScreenImpl.displayNagramRecentChatsMenu(
                     context: strongSelf.context,
-                    chatNavigationStack: chatNavigationStack,
-                    nextFolderId: nextFolderId,
                     parentController: strongSelf,
-                    backButtonView: backButtonNode.view,
+                    sourceView: backButtonNode.view,
                     navigationController: navigationController,
-                    gesture: gesture
+                    gesture: gesture,
+                    useBackAnimation: true,
+                    fallback: fallback
                 )
             }
         }

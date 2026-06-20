@@ -2269,10 +2269,10 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
                             guard let filter = filters.first(where: { $0.id == folderId }) else {
                                 return nil
                             }
-                            guard case let .filter(_, _, _, data) = filter else {
+                            guard case let .filter(filterId, _, _, data) = filter else {
                                 return nil
                             }
-                            return chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId)
+                            return chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: context.account.peerId, filterId: filterId))
                         }
                     }
                     

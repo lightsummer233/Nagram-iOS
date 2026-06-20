@@ -4,6 +4,7 @@ import Display
 import SwiftSignalKit
 import TelegramCore
 import AccountContext
+import NagramSettings // MARK: NAGRAM
 import GalleryUI
 import InstantPageUI
 import ChatListUI
@@ -80,6 +81,8 @@ public func navigateToChatControllerImpl(_ params: NavigateToChatControllerParam
             })
             return
         }
+        
+        NagramSettings.shared.addRecentChatId(params.chatLocation.peerId.toInt64(), accountPeerId: params.context.account.peerId.toInt64()) // MARK: NAGRAM — 记录导航进入的会话
         
         if case let .peer(peer) = params.chatLocation, case let .channel(channel) = peer, channel.flags.contains(.isForum), !viewForumAsMessages {
             for controller in params.navigationController.viewControllers.reversed() {
@@ -493,6 +496,7 @@ public func chatControllerForForumThreadImpl(context: AccountContext, peerId: En
 }
 
 public func navigateToForumChannelImpl(context: AccountContext, peerId: EnginePeer.Id, navigationController: NavigationController) {
+    NagramSettings.shared.addRecentChatId(peerId.toInt64(), accountPeerId: context.account.peerId.toInt64()) // MARK: NAGRAM — 记录进入 forum 话题列表
     let controller = ChatListControllerImpl(context: context, location: .forum(peerId: peerId), controlsHistoryPreload: false, enableDebugActions: false)
     controller.navigationPresentation = .master
     navigationController.pushViewController(controller)

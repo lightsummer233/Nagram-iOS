@@ -974,11 +974,11 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             guard let filter = filters.first(where: { $0.id == id }) else {
                 return .single(nil)
             }
-            guard case let .filter(_, _, _, data) = filter else {
+            guard case let .filter(filterId, _, _, data) = filter else {
                 return .single(nil)
             }
             
-            let filterPredicate: ChatListFilterPredicate = chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId)
+            let filterPredicate: ChatListFilterPredicate = chatListFilterPredicate(filter: data, accountPeerId: context.account.peerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: context.account.peerId, filterId: filterId))
             return context.engine.peers.getChatListPeers(filterPredicate: filterPredicate)
             |> mapToSignal { peers -> Signal<(areMuted: Bool, peerIds: [EnginePeer.Id])?, NoError> in
                 let peerIds = peers.map(\.id)
@@ -4139,7 +4139,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     private func readAllInFilter(id: Int32) {
         for filter in self.chatListDisplayNode.mainContainerNode.availableFilters {
             if case let .filter(filter) = filter, case let .filter(filterId, _, _, data) = filter, filterId == id {
-                let filterPredicate = chatListFilterPredicate(filter: data, accountPeerId: self.context.account.peerId)
+                let filterPredicate = chatListFilterPredicate(filter: data, accountPeerId: self.context.account.peerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: self.context.account.peerId, filterId: filterId))
                 var markItems: [(groupId: EngineChatList.Group, filterPredicate: ChatListFilterPredicate?)] = []
                 markItems.append((.root, filterPredicate))
                 for additionalGroupId in filterPredicate.includeAdditionalPeerGroupIds {
@@ -4502,6 +4502,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                 let _ = (strongSelf.context.engine.peers.updateChatListFiltersInteractively { filters in
                     return filters.filter({ $0.id != id })
                 }).startStandalone()
+                NagramSettings.shared.setRecentChatFolderEnabled(false, accountPeerId: strongSelf.context.account.peerId.toInt64(), filterId: id) // MARK: NAGRAM — 清理本地最近文件夹状态
             }
             
             if strongSelf.chatListDisplayNode.mainContainerNode.currentItemNode.chatListFilter?.id == id {
@@ -4582,6 +4583,7 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                                     guard let self else {
                                         return
                                     }
+                                    NagramSettings.shared.setRecentChatFolderEnabled(false, accountPeerId: self.context.account.peerId.toInt64(), filterId: id) // MARK: NAGRAM — 清理本地最近文件夹状态
                                     if self.chatListDisplayNode.mainContainerNode.currentItemNode.chatListFilter?.id == id {
                                         self.chatListDisplayNode.mainContainerNode.switchToFilter(id: .all, completion: {
                                         })
@@ -4901,8 +4903,8 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
                 signal = self.context.engine.messages.togglePeersUnreadMarkInteractively(peerIds: Array(peerIds), setToValue: false)
             } else if case let .chatList(groupId) = self.chatListDisplayNode.effectiveContainerNode.location {
                 let filterPredicate: ChatListFilterPredicate?
-                if let filter = self.chatListDisplayNode.effectiveContainerNode.currentItemNode.chatListFilter, case let .filter(_, _, _, data) = filter {
-                    filterPredicate = chatListFilterPredicate(filter: data, accountPeerId: self.context.account.peerId)
+                if let filter = self.chatListDisplayNode.effectiveContainerNode.currentItemNode.chatListFilter, case let .filter(filterId, _, _, data) = filter {
+                    filterPredicate = chatListFilterPredicate(filter: data, accountPeerId: self.context.account.peerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: self.context.account.peerId, filterId: filterId))
                 } else {
                     filterPredicate = nil
                 }
@@ -6242,6 +6244,82 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
     }
     
     override public func tabBarItemContextAction(sourceView: ContextExtractedContentContainingView, gesture: ContextGesture) {
+        // MARK: NAGRAM — 长按 Chats tab 显示最近会话
+        if NagramSettings.shared.recentChatsEnabled && !NagramSettings.shared.recentChatIds(accountPeerId: self.context.account.peerId.toInt64(), limit: 1).isEmpty {
+            self.displayNagramRecentChatsMenu(sourceView: sourceView, gesture: gesture, fallback: { [weak self, weak sourceView] in
+                guard let self, let sourceView else {
+                    return
+                }
+                self.displayChatListTabBarContextMenu(sourceView: sourceView, gesture: gesture)
+            })
+            return
+        }
+        
+        self.displayChatListTabBarContextMenu(sourceView: sourceView, gesture: gesture)
+    }
+    
+    private func displayNagramRecentChatsMenu(sourceView: ContextExtractedContentContainingView, gesture: ContextGesture, fallback: @escaping () -> Void) {
+        let peerIds = NagramSettings.shared.recentChatIds(accountPeerId: self.context.account.peerId.toInt64(), limit: 25).map { EnginePeer.Id($0) }
+        guard !peerIds.isEmpty else {
+            fallback()
+            return
+        }
+        
+        let peerMap = EngineDataMap(
+            Set(peerIds).map(TelegramEngine.EngineData.Item.Peer.Peer.init)
+        )
+        let _ = (self.context.engine.data.get(
+            peerMap
+        )
+        |> deliverOnMainQueue).startStandalone(next: { [weak self, weak sourceView] peerMap in
+            guard let self, let sourceView else {
+                return
+            }
+            
+            var items: [ContextMenuItem] = []
+            
+            for peerId in peerIds {
+                guard let maybePeer = peerMap[peerId], let peer = maybePeer else {
+                    continue
+                }
+                
+                let isSavedMessages = peer.id == self.context.account.peerId
+                let title: String
+                if isSavedMessages {
+                    title = self.presentationData.strings.DialogList_SavedMessages
+                } else {
+                    title = peer.displayTitle(strings: self.presentationData.strings, displayOrder: self.presentationData.nameDisplayOrder)
+                }
+                
+                items.append(.action(ContextMenuActionItem(text: title, icon: { _ in
+                    return nil
+                }, action: { [weak self] _, f in
+                    f(.default)
+                    
+                    guard let self, let navigationController = self.navigationController as? NavigationController else {
+                        return
+                    }
+                    
+                    self.context.sharedContext.navigateToChatController(NavigateToChatControllerParams(
+                        navigationController: navigationController,
+                        context: self.context,
+                        chatLocation: .peer(peer),
+                        animated: true
+                    ))
+                })))
+            }
+            
+            if items.isEmpty {
+                fallback()
+                return
+            }
+            
+            let controller = makeContextController(context: self.context, presentationData: self.presentationData, source: .reference(ChatListTabBarContextReferenceContentSource(controller: self, sourceView: sourceView)), items: .single(ContextController.Items(content: .list(items))), recognizer: nil, gesture: gesture)
+            self.context.sharedContext.mainWindow?.presentInGlobalOverlay(controller)
+        })
+    }
+    
+    private func displayChatListTabBarContextMenu(sourceView: ContextExtractedContentContainingView, gesture: ContextGesture) {
         let _ = (combineLatest(queue: .mainQueue(),
             self.context.engine.peers.currentChatListFilters(),
             chatListFilterItems(context: self.context)

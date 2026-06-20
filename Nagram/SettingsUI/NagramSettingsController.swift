@@ -112,6 +112,7 @@ private func nagramGroups(
             .toggle(titleKey: "Nagram.HideRecordingButton", get: { NagramSettings.shared.hideRecordingButton }, set: { NagramSettings.shared.hideRecordingButton = $0 }),
         ]),
         NagramGroup(tab: .chat, headerKey: "Nagram.Section.Gesture", footerKey: "Nagram.Section.Gesture.Footer", rows: [
+            .toggle(titleKey: "Nagram.RecentChats", get: { NagramSettings.shared.recentChatsEnabled }, set: { NagramSettings.shared.recentChatsEnabled = $0 }),
             .choice(titleKey: "Nagram.ChatListSwipeAction", prefix: "Nagram.ChatListSwipeAction", options: ["both", "switch", "quick", "none"], current: { NagramSettings.shared.chatListSwipeActionMode.rawValue }, set: { NagramSettings.shared.chatListSwipeAction = $0 }),
             .toggle(titleKey: "Nagram.DisableScrollToNextChannel", get: { NagramSettings.shared.disableScrollToNextChannel }, set: { NagramSettings.shared.disableScrollToNextChannel = $0 }),
             .toggle(titleKey: "Nagram.DisableScrollToNextTopic", get: { NagramSettings.shared.disableScrollToNextTopic }, set: { NagramSettings.shared.disableScrollToNextTopic = $0 }),

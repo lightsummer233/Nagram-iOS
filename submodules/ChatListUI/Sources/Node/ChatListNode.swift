@@ -4126,8 +4126,8 @@ private func statusStringForPeerType(accountPeerId: EnginePeer.Id, strings: Pres
     
     if let chatListFilters = chatListFilters {
         let result = NSMutableAttributedString(string: "")
-        for case let .filter(_, title, _, data) in chatListFilters {
-            let predicate = chatListFilterPredicate(filter: data, accountPeerId: accountPeerId)
+        for case let .filter(id, title, _, data) in chatListFilters {
+            let predicate = chatListFilterPredicate(filter: data, accountPeerId: accountPeerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: accountPeerId, filterId: id))
             if predicate.includes(peer: peer._asPeer(), groupId: .root, isRemovedFromTotalUnreadCount: isMuted, isUnread: isUnread, isContact: isContact, messageTagSummaryResult: hasUnseenMentions) {
                 if result.length != 0 {
                     result.append(NSAttributedString(string: ", "))
@@ -4257,7 +4257,7 @@ func chatListItemTags(location: ChatListControllerLocation, accountPeerId: Engin
     var result: [ChatListItemContent.Tag] = []
     for case let .filter(id, title, _, data) in chatListFilters {
         if data.color != nil {
-            let predicate = chatListFilterPredicate(filter: data, accountPeerId: accountPeerId)
+            let predicate = chatListFilterPredicate(filter: data, accountPeerId: accountPeerId, includeRecentPeerIds: nagramChatListFilterRecentPeerIds(accountPeerId: accountPeerId, filterId: id))
             if predicate.pinnedPeerIds.contains(peer.id) || predicate.includes(peer: peer._asPeer(), groupId: .root, isRemovedFromTotalUnreadCount: isMuted, isUnread: isUnread, isContact: isContact, messageTagSummaryResult: hasUnseenMentions) {
                 result.append(ChatListItemContent.Tag(
                     id: id,

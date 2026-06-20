@@ -5,6 +5,7 @@ import SwiftSignalKit
 import Display
 import TelegramUIPreferences
 import AccountContext
+import NagramSettings // MARK: NAGRAM
 
 public enum ChatListNodeLocation: Equatable {
     case initial(count: Int, filter: ChatListFilter?)
@@ -35,9 +36,10 @@ public struct ChatListNodeViewUpdate {
     }
 }
 
-public func chatListFilterPredicate(filter: ChatListFilterData, accountPeerId: EnginePeer.Id) -> ChatListFilterPredicate {
+public func chatListFilterPredicate(filter: ChatListFilterData, accountPeerId: EnginePeer.Id, includeRecentPeerIds: Set<EnginePeer.Id> = Set()) -> ChatListFilterPredicate {
     var includePeers = Set(filter.includePeers.peers)
     var excludePeers = Set(filter.excludePeers)
+    includePeers.formUnion(includeRecentPeerIds) // MARK: NAGRAM
     
     if !filter.includePeers.pinnedPeers.isEmpty {
         includePeers.subtract(filter.includePeers.pinnedPeers)
@@ -69,6 +71,15 @@ public func chatListFilterPredicate(filter: ChatListFilterData, accountPeerId: E
                 } else {
                     return false
                 }
+            }
+        }
+        if !includeRecentPeerIds.isEmpty {
+            var effectivePeerId = peer.id
+            if let associatedPeerId = peer.associatedPeerId, peer.associatedPeerOverridesIdentity {
+                effectivePeerId = associatedPeerId
+            }
+            if includeRecentPeerIds.contains(peer.id) || includeRecentPeerIds.contains(effectivePeerId) {
+                return true
             }
         }
         if !filter.categories.contains(.contacts) && isContact {
@@ -119,41 +130,84 @@ public func chatListFilterPredicate(filter: ChatListFilterData, accountPeerId: E
     })
 }
 
+public func nagramChatListFilterRecentPeerIds(accountPeerId: EnginePeer.Id, filterId: Int32) -> Set<EnginePeer.Id> {
+    let accountPeerIdValue = accountPeerId.toInt64()
+    guard NagramSettings.shared.isRecentChatFolderEnabled(accountPeerId: accountPeerIdValue, filterId: filterId)
+    else {
+        return Set()
+    }
+    return Set(NagramSettings.shared.recentChatIds(accountPeerId: accountPeerIdValue).map(EnginePeer.Id.init))
+}
+
+private func nagramRecentChatsFilterUpdates(accountPeerId: Int64, filterId: Int32) -> Signal<Void, NoError> {
+    let initial = Signal<Void, NoError>.single(Void())
+    let changes = Signal<Void, NoError> { subscriber in
+        let recentChatsObserver = NotificationCenter.default.addObserver(forName: .nagramRecentChatsDidChange, object: nil, queue: nil) { notification in
+            if let updatedAccountPeerId = notification.userInfo?["accountPeerId"] as? Int64, updatedAccountPeerId == accountPeerId {
+                subscriber.putNext(Void())
+            }
+        }
+        let folderSettingsObserver = NotificationCenter.default.addObserver(forName: .nagramRecentChatFolderSettingsDidChange, object: nil, queue: nil) { notification in
+            if let updatedAccountPeerId = notification.userInfo?["accountPeerId"] as? Int64, updatedAccountPeerId == accountPeerId,
+               let updatedFilterId = notification.userInfo?["filterId"] as? Int32,
+               updatedFilterId == filterId {
+                subscriber.putNext(Void())
+            }
+        }
+        return ActionDisposable {
+            NotificationCenter.default.removeObserver(recentChatsObserver)
+            NotificationCenter.default.removeObserver(folderSettingsObserver)
+        }
+    }
+    return initial |> then(changes)
+}
+
 public func chatListViewForLocation(chatListLocation: ChatListControllerLocation, location: ChatListNodeLocation, account: Account, shouldLoadCanMessagePeer: Bool) -> Signal<ChatListNodeViewUpdate, NoError> {
     let accountPeerId = account.peerId
     
     switch chatListLocation {
     case let .chatList(groupId):
-        let filterPredicate: ChatListFilterPredicate?
-        if let filter = location.filter, case let .filter(_, _, _, data) = filter {
-            filterPredicate = chatListFilterPredicate(filter: data, accountPeerId: account.peerId)
+        let filterPredicate: Signal<ChatListFilterPredicate?, NoError>
+        if let filter = location.filter, case let .filter(id, _, _, data) = filter {
+            let nagramAccountPeerId = account.peerId.toInt64()
+            filterPredicate = nagramRecentChatsFilterUpdates(accountPeerId: nagramAccountPeerId, filterId: id)
+            |> map { _ -> ChatListFilterPredicate? in
+                let includeRecentPeerIds = nagramChatListFilterRecentPeerIds(accountPeerId: account.peerId, filterId: id)
+                return chatListFilterPredicate(filter: data, accountPeerId: account.peerId, includeRecentPeerIds: includeRecentPeerIds)
+            }
         } else {
-            filterPredicate = nil
+            filterPredicate = .single(nil)
         }
         
         switch location {
         case let .initial(count, _):
-            let signal: Signal<(ChatListView, ViewUpdateType), NoError>
-            signal = account.viewTracker.tailChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, count: count, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
-            return signal
-            |> map { view, updateType -> ChatListNodeViewUpdate in
-                return ChatListNodeViewUpdate(list: EngineChatList(view, accountPeerId: accountPeerId), type: updateType, scrollPosition: nil)
+            return filterPredicate
+            |> mapToSignal { filterPredicate -> Signal<ChatListNodeViewUpdate, NoError> in
+                let signal: Signal<(ChatListView, ViewUpdateType), NoError>
+                signal = account.viewTracker.tailChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, count: count, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
+                return signal
+                |> map { view, updateType -> ChatListNodeViewUpdate in
+                    return ChatListNodeViewUpdate(list: EngineChatList(view, accountPeerId: accountPeerId), type: updateType, scrollPosition: nil)
+                }
             }
         case let .navigation(index, _):
             guard case let .chatList(index) = index else {
                 return .never()
             }
-            var first = true
-            return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
-            |> map { view, updateType -> ChatListNodeViewUpdate in
-                let genericType: ViewUpdateType
-                if first {
-                    first = false
-                    genericType = ViewUpdateType.UpdateVisible
-                } else {
-                    genericType = updateType
+            return filterPredicate
+            |> mapToSignal { filterPredicate -> Signal<ChatListNodeViewUpdate, NoError> in
+                var first = true
+                return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
+                |> map { view, updateType -> ChatListNodeViewUpdate in
+                    let genericType: ViewUpdateType
+                    if first {
+                        first = false
+                        genericType = ViewUpdateType.UpdateVisible
+                    } else {
+                        genericType = updateType
+                    }
+                    return ChatListNodeViewUpdate(list: EngineChatList(view, accountPeerId: accountPeerId), type: genericType, scrollPosition: nil)
                 }
-                return ChatListNodeViewUpdate(list: EngineChatList(view, accountPeerId: accountPeerId), type: genericType, scrollPosition: nil)
             }
         case let .scroll(index, sourceIndex, scrollPosition, animated, _):
             guard case let .chatList(index) = index else {
@@ -162,18 +216,21 @@ public func chatListViewForLocation(chatListLocation: ChatListControllerLocation
             
             let directionHint: ListViewScrollToItemDirectionHint = sourceIndex > .chatList(index) ? .Down : .Up
             let chatScrollPosition: ChatListNodeViewScrollPosition = .index(index: index, position: scrollPosition, directionHint: directionHint, animated: animated)
-            var first = true
-            return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
-            |> map { view, updateType -> ChatListNodeViewUpdate in
-                let genericType: ViewUpdateType
-                let scrollPosition: ChatListNodeViewScrollPosition? = first ? chatScrollPosition : nil
-                if first {
-                    first = false
-                    genericType = ViewUpdateType.UpdateVisible
-                } else {
-                    genericType = updateType
+            return filterPredicate
+            |> mapToSignal { filterPredicate -> Signal<ChatListNodeViewUpdate, NoError> in
+                var first = true
+                return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
+                |> map { view, updateType -> ChatListNodeViewUpdate in
+                    let genericType: ViewUpdateType
+                    let scrollPosition: ChatListNodeViewScrollPosition? = first ? chatScrollPosition : nil
+                    if first {
+                        first = false
+                        genericType = ViewUpdateType.UpdateVisible
+                    } else {
+                        genericType = updateType
+                    }
+                    return ChatListNodeViewUpdate(list: EngineChatList(view, accountPeerId: accountPeerId), type: genericType, scrollPosition: scrollPosition)
                 }
-                return ChatListNodeViewUpdate(list: EngineChatList(view, accountPeerId: accountPeerId), type: genericType, scrollPosition: scrollPosition)
             }
         }
     case let .forum(peerId):
