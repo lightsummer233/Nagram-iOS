@@ -78,6 +78,8 @@ import PremiumUI
 import ImageTransparency
 import StickerPackPreviewUI
 import TextNodeWithEntities
+// MARK: NAGRAM
+import NagramSettings
 import EntityKeyboard
 import ChatTitleView
 import EmojiStatusComponent
@@ -2213,7 +2215,11 @@ extension ChatControllerImpl {
                     }
                 }
                 
-                let text = trimChatInputText(convertMarkdownToAttributes(expandedInputStateAttributedString(editMessage.inputState.inputText)))
+                var text = trimChatInputText(convertMarkdownToAttributes(expandedInputStateAttributedString(editMessage.inputState.inputText)))
+                // MARK: NAGRAM — 编辑时盘古之白
+                if NagramSettings.shared.enablePanguOnEditing {
+                    text = NagramPangu.transform(text)
+                }
 
                 var isSpecialChatContents = false
                 if case .customChatContents = strongSelf.presentationInterfaceState.subject {

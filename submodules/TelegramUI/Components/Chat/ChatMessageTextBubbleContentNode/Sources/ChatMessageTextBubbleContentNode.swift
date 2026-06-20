@@ -27,6 +27,8 @@ import ChatControllerInteraction
 import InteractiveTextComponent
 import ShimmeringMask
 import StreamingTextReveal
+// MARK: NAGRAM
+import NagramSettings
 
 private final class CachedChatMessageText {
     let text: String
@@ -80,6 +82,53 @@ private func findQuoteRange(string: String, quoteText: String, offset: Int?) -> 
         }
     }
     return currentRange
+}
+
+// MARK: NAGRAM — 接收展示时盘古之白需要保护实体内部文本，并同步平移实体 range。
+private func nagramPanguTransformEntities(_ entities: [MessageTextEntity]?, insertedUtf16Offsets: [Int]) -> [MessageTextEntity]? {
+    guard !insertedUtf16Offsets.isEmpty, let entities else {
+        return entities
+    }
+    return entities.map { entity in
+        return MessageTextEntity(range: NagramPangu.transformRange(entity.range, insertedUtf16Offsets: insertedUtf16Offsets), type: entity.type)
+    }
+}
+
+private func nagramPanguProtectedRange(_ entity: MessageTextEntity) -> Range<Int>? {
+    switch entity.type {
+    case .Unknown,
+         .Mention,
+         .Hashtag,
+         .BotCommand,
+         .Url,
+         .Email,
+         .Code,
+         .Pre,
+         .TextUrl,
+         .TextMention,
+         .PhoneNumber,
+         .BankCard,
+         .CustomEmoji,
+         .FormattedDate,
+         .Custom:
+        return entity.range
+    case .Bold,
+         .Italic,
+         .Strikethrough,
+         .BlockQuote,
+         .Underline,
+         .Spoiler:
+        return nil
+    }
+}
+
+private func nagramPanguProtectedRanges(rawText: String, messageEntities: [MessageTextEntity]?) -> [Range<Int>] {
+    var ranges: [Range<Int>] = []
+    if let messageEntities {
+        ranges.append(contentsOf: messageEntities.compactMap(nagramPanguProtectedRange))
+    }
+    ranges.append(contentsOf: generateTextEntities(rawText, enabledTypes: .all).compactMap(nagramPanguProtectedRange))
+    return ranges
 }
 
 public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
@@ -453,6 +502,15 @@ public class ChatMessageTextBubbleContentNode: ChatMessageBubbleContentNode {
                         default:
                             return true
                         }
+                    }
+                }
+                
+                // MARK: NAGRAM — 接收 / 历史展示时盘古之白
+                if NagramSettings.shared.enablePanguOnReceiving {
+                    let transform = NagramPangu.transform(rawText, protectedUtf16Ranges: nagramPanguProtectedRanges(rawText: rawText, messageEntities: messageEntities))
+                    if !transform.insertedUtf16Offsets.isEmpty {
+                        rawText = transform.text
+                        messageEntities = nagramPanguTransformEntities(messageEntities, insertedUtf16Offsets: transform.insertedUtf16Offsets)
                     }
                 }
                 

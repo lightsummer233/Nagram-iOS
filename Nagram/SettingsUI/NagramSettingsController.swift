@@ -90,6 +90,11 @@ private func nagramGroups(
             .toggle(titleKey: "Nagram.HideReactions", get: { NagramSettings.shared.hideReactions }, set: { NagramSettings.shared.hideReactions = $0 }),
             .toggle(titleKey: "Nagram.HideChannelBottomButton", get: { NagramSettings.shared.hideChannelBottomButton }, set: { NagramSettings.shared.hideChannelBottomButton = $0 }),
         ]),
+        NagramGroup(tab: .chat, headerKey: "Nagram.Section.Pangu", footerKey: "Nagram.PanguInfo", rows: [
+            .toggle(titleKey: "Nagram.PanguOnReceiving", get: { NagramSettings.shared.enablePanguOnReceiving }, set: { NagramSettings.shared.enablePanguOnReceiving = $0 }),
+            .toggle(titleKey: "Nagram.PanguOnSending", get: { NagramSettings.shared.enablePanguOnSending }, set: { NagramSettings.shared.enablePanguOnSending = $0 }),
+            .toggle(titleKey: "Nagram.PanguOnEditing", get: { NagramSettings.shared.enablePanguOnEditing }, set: { NagramSettings.shared.enablePanguOnEditing = $0 }),
+        ]),
         NagramGroup(tab: .chat, headerKey: "Nagram.Section.MessageMenu", footerKey: nil, rows: [
             .navigation(titleKey: "Nagram.MessageMenu", action: messageMenuAction),
         ]),

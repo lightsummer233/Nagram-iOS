@@ -6,6 +6,7 @@
 "Nagram.Section.Camera" = "カメラ";
 "Nagram.Section.Camera.Footer" = "添付メニュー内のカメラ入口とライブプレビュー。";
 "Nagram.Section.MessageDisplay" = "メッセージ表示";
+"Nagram.Section.Pangu" = "盤古の白";
 "Nagram.Section.MessageMenu" = "メッセージメニュー";
 "Nagram.Section.Sending" = "送信";
 "Nagram.Section.Gesture" = "ジェスチャ";
@@ -13,9 +14,13 @@
 "Nagram.Section.Privacy" = "プライバシー";
 
 "Nagram.SecondsInMessages" = "タイムスタンプに秒を表示";
+"Nagram.PanguOnReceiving" = "受信メッセージをPangu化";
+"Nagram.PanguInfo" = "文字を読みやすくするため、CJK（中国語、日本語、韓国語）、半角英数字、記号の間に自動でスペースを挿入します。";
 "Nagram.HideReactions" = "リアクションを非表示";
 "Nagram.DisableSendAsButton" = "「チャンネルとして送信」ボタンを非表示";
 "Nagram.SendWithReturnKey" = "Returnキーで送信";
+"Nagram.PanguOnSending" = "送信メッセージをPangu化";
+"Nagram.PanguOnEditing" = "編集メッセージをPangu化";
 "Nagram.HideRecordingButton" = "音声録音ボタンを非表示";
 "Nagram.UploadSpeedBoost" = "アップロード高速化";
 "Nagram.Section.Network" = "ネットワーク高速化";

@@ -49,6 +49,8 @@ swift_library(
         "//submodules/TelegramUI/Components/Chat/ChatMessagePaymentAlertController",
         "//submodules/ChatPresentationInterfaceState",
         "//submodules/CheckNode",
+        # MARK: NAGRAM — 分享发送时盘古之白
+        "//Nagram/Settings:NagramSettings",
     ],
     visibility = [
         "//visibility:public",

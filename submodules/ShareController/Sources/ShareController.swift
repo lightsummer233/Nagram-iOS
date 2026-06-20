@@ -22,8 +22,24 @@ import MultiAnimationRenderer
 import ObjectiveC
 import UndoUI
 import ChatMessagePaymentAlertController
+// MARK: NAGRAM
+import NagramSettings
 
 private var ObjCKey_DeinitWatcher: Int?
+
+private func nagramPanguShareText(_ text: NSAttributedString) -> NSAttributedString {
+    guard NagramSettings.shared.enablePanguOnSending else {
+        return text
+    }
+    return NagramPangu.transform(text)
+}
+
+private func nagramPanguShareText(_ text: String) -> String {
+    guard NagramSettings.shared.enablePanguOnSending else {
+        return text
+    }
+    return NagramPangu.transform(text).text
+}
 
 private enum ExternalShareItem {
     case text(String)
@@ -1439,11 +1455,12 @@ public final class ShareController: ViewController {
                     }
                     let attributedText = NSMutableAttributedString(string: string, attributes: [ChatTextInputAttributes.italic: true as NSNumber])
                     attributedText.append(NSAttributedString(string: "\n\n\(url)"))
-                    let entities = generateChatInputTextEntities(attributedText)
+                    let panguText = nagramPanguShareText(attributedText)
+                    let entities = generateChatInputTextEntities(panguText)
                     
                     messages.append(StandaloneSendEnqueueMessage(
                         content: .text(text: StandaloneSendEnqueueMessage.Text(
-                            string: attributedText.string,
+                            string: panguText.string,
                             entities: entities
                         )),
                         replyToMessageId: replyToMessageId
@@ -2036,12 +2053,14 @@ public final class ShareController: ViewController {
                     
                     var messages: [EnqueueMessage] = []
                     if !text.isEmpty {
+                        let text = nagramPanguShareText(text)
                         messages.append(.message(text: text, attributes: [], inlineStickers: [:], mediaReference: nil, threadId: threadId, replyToMessageId: replyToMessageId.flatMap { EngineMessageReplySubject(messageId: $0, quote: nil, innerSubject: nil) }, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: []))
                     }
                     let attributedText = NSMutableAttributedString(string: string, attributes: [ChatTextInputAttributes.italic: true as NSNumber])
                     attributedText.append(NSAttributedString(string: "\n\n\(url)"))
-                    let entities = generateChatInputTextEntities(attributedText)
-                    messages.append(.message(text: attributedText.string, attributes: [TextEntitiesMessageAttribute(entities: entities)], inlineStickers: [:], mediaReference: nil, threadId: threadId, replyToMessageId: replyToMessageId.flatMap { EngineMessageReplySubject(messageId: $0, quote: nil, innerSubject: nil) }, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: []))
+                    let panguText = nagramPanguShareText(attributedText)
+                    let entities = generateChatInputTextEntities(panguText)
+                    messages.append(.message(text: panguText.string, attributes: [TextEntitiesMessageAttribute(entities: entities)], inlineStickers: [:], mediaReference: nil, threadId: threadId, replyToMessageId: replyToMessageId.flatMap { EngineMessageReplySubject(messageId: $0, quote: nil, innerSubject: nil) }, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil, bubbleUpEmojiOrStickersets: []))
                     messages = transformMessages(messages, showNames: showNames, silently: silently, sendPaidMessageStars: requiresStars[peerId])
                     shareSignals.append(enqueueMessages(account: currentContext.context.account, peerId: peerId, messages: messages))
                 }

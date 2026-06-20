@@ -35,6 +35,8 @@ import ComposeTodoScreen
 import ComposePollScreen
 import Photos
 import AttachmentFileController
+// MARK: NAGRAM
+import NagramSettings
 
 extension ChatControllerImpl {
     enum AttachMenuSubject {
@@ -387,6 +389,7 @@ extension ChatControllerImpl {
                         var attributes: [EngineMessage.Attribute] = []
                         var text = ""
                         if let caption {
+                            let caption = NagramSettings.shared.enablePanguOnSending ? NagramPangu.transform(caption) : caption
                             text = caption.string
                             let entities = generateTextEntities(text, enabledTypes: .all, currentEntities: generateChatInputTextEntities(caption))
                             if !entities.isEmpty {
@@ -437,6 +440,7 @@ extension ChatControllerImpl {
                         var attributes: [EngineMessage.Attribute] = []
                         var text = ""
                         if let caption {
+                            let caption = NagramSettings.shared.enablePanguOnSending ? NagramPangu.transform(caption) : caption
                             text = caption.string
                             let entities = generateTextEntities(text, enabledTypes: .all, currentEntities: generateChatInputTextEntities(caption))
                             if !entities.isEmpty {
@@ -538,6 +542,7 @@ extension ChatControllerImpl {
                         if let strongSelf = self, let (peers, _, silent, scheduleTime, text, parameters) = peers {
                             var textEnqueueMessage: EnqueueMessage?
                             if let text = text, text.length > 0 {
+                                let text = NagramSettings.shared.enablePanguOnSending ? NagramPangu.transform(text) : text
                                 var attributes: [EngineMessage.Attribute] = []
                                 let entities = generateTextEntities(text.string, enabledTypes: .all, currentEntities: generateChatInputTextEntities(text))
                                 if !entities.isEmpty {

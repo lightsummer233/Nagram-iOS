@@ -6,6 +6,7 @@
 "Nagram.Section.Camera" = "相机";
 "Nagram.Section.Camera.Footer" = "聊天附件面板中的相机入口与实时预览。";
 "Nagram.Section.MessageDisplay" = "消息显示";
+"Nagram.Section.Pangu" = "盘古之白";
 "Nagram.Section.MessageMenu" = "消息菜单";
 "Nagram.Section.Sending" = "发送";
 "Nagram.Section.Gesture" = "手势";
@@ -13,9 +14,13 @@
 "Nagram.Section.Privacy" = "隐私";
 
 "Nagram.SecondsInMessages" = "时间戳显示秒";
+"Nagram.PanguOnReceiving" = "接收消息 Pangu 化";
+"Nagram.PanguInfo" = "使文字更具可读性。在 CJK（中文、日文、韩文）、半宽英文、数字和符号字符之间自动插入空格。";
 "Nagram.HideReactions" = "隐藏消息反应";
 "Nagram.DisableSendAsButton" = "隐藏「以频道身份发送」";
 "Nagram.SendWithReturnKey" = "回车键发送";
+"Nagram.PanguOnSending" = "发送消息 Pangu 化";
+"Nagram.PanguOnEditing" = "编辑消息 Pangu 化";
 "Nagram.HideRecordingButton" = "隐藏语音录制按钮";
 "Nagram.UploadSpeedBoost" = "上传加速";
 "Nagram.Section.Network" = "网络加速";

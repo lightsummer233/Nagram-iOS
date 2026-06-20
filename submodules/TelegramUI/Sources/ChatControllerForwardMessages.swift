@@ -13,6 +13,8 @@ import PremiumUI
 import ReactionSelectionNode
 import TopMessageReactions
 import ChatMessagePaymentAlertController
+// MARK: NAGRAM
+import NagramSettings
 
 extension ChatControllerImpl {
     func forwardMessages(messageIds: [EngineMessage.Id], options: ChatInterfaceForwardOptionsState? = nil, resetCurrent: Bool = false) {
@@ -139,7 +141,11 @@ extension ChatControllerImpl {
                         
                         var result: [EnqueueMessage] = []
                         if messageText.string.count > 0 {
-                            let inputText = convertMarkdownToAttributes(messageText)
+                            var inputText = convertMarkdownToAttributes(messageText)
+                            // MARK: NAGRAM — 转发附言发送时盘古之白
+                            if NagramSettings.shared.enablePanguOnSending {
+                                inputText = NagramPangu.transform(inputText)
+                            }
                             for text in breakChatInputText(trimChatInputText(inputText)) {
                                 if text.length != 0 {
                                     var attributes: [EngineMessage.Attribute] = []

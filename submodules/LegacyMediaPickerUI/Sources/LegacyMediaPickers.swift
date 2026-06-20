@@ -14,6 +14,15 @@ import LocalMediaResources
 import LegacyUI
 import TextFormat
 import Photos
+// MARK: NAGRAM
+import NagramSettings
+
+private func nagramPanguOutgoingText(_ text: NSAttributedString) -> NSAttributedString {
+    guard NagramSettings.shared.enablePanguOnSending else {
+        return text
+    }
+    return NagramPangu.transform(text)
+}
 
 public func guessMimeTypeByFileExtension(_ ext: String) -> String {
     return TGMimeTypeMap.mimeType(forExtension: ext) ?? "application/binary"
@@ -475,7 +484,7 @@ public func legacyAssetPickerEnqueueMessages(
                                                 attributes.append(MediaSpoilerMessageAttribute())
                                             }
                                                                                         
-                                            let text = trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString()))
+                                            let text = nagramPanguOutgoingText(trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString())))
                                             let entities = generateTextEntities(text.string, enabledTypes: .all, currentEntities: generateChatInputTextEntities(text))
                                             if !entities.isEmpty {
                                                 attributes.append(TextEntitiesMessageAttribute(entities: entities))
@@ -566,7 +575,7 @@ public func legacyAssetPickerEnqueueMessages(
                                                         attributes.append(MediaSpoilerMessageAttribute())
                                                     }
                                                     
-                                                    let text = trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString()))
+                                                    let text = nagramPanguOutgoingText(trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString())))
                                                     let entities = generateTextEntities(text.string, enabledTypes: .all, currentEntities: generateChatInputTextEntities(text))
                                                     if !entities.isEmpty {
                                                         attributes.append(TextEntitiesMessageAttribute(entities: entities))
@@ -634,7 +643,7 @@ public func legacyAssetPickerEnqueueMessages(
                                             attributes.append(MediaSpoilerMessageAttribute())
                                         }
                                     
-                                        let text = trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString()))
+                                        let text = nagramPanguOutgoingText(trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString())))
                                         let entities = generateTextEntities(text.string, enabledTypes: .all, currentEntities: generateChatInputTextEntities(text))
                                         if !entities.isEmpty {
                                             attributes.append(TextEntitiesMessageAttribute(entities: entities))
@@ -704,7 +713,7 @@ public func legacyAssetPickerEnqueueMessages(
                                     let media = TelegramMediaFile(fileId: EngineMedia.Id(namespace: Namespaces.Media.LocalFile, id: randomId), partialReference: nil, resource: resource, previewRepresentations: previewRepresentations, videoThumbnails: [], immediateThumbnailData: nil, mimeType: mimeType, size: engineFileSize(path), attributes: [.FileName(fileName: name)], alternativeRepresentations: [])
                                     
                                     var attributes: [EngineMessage.Attribute] = []
-                                    let text = trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString()))
+                                    let text = nagramPanguOutgoingText(trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString())))
                                     let entities = generateTextEntities(text.string, enabledTypes: .all, currentEntities: generateChatInputTextEntities(text))
                                     if !entities.isEmpty {
                                         attributes.append(TextEntitiesMessageAttribute(entities: entities))
@@ -757,7 +766,7 @@ public func legacyAssetPickerEnqueueMessages(
                                     let media = TelegramMediaFile(fileId: EngineMedia.Id(namespace: Namespaces.Media.LocalFile, id: randomId), partialReference: nil, resource: resource, previewRepresentations: [], videoThumbnails: [], immediateThumbnailData: nil, mimeType: mimeType, size: nil, attributes: [.FileName(fileName: name)], alternativeRepresentations: [])
                                     
                                     var attributes: [EngineMessage.Attribute] = []
-                                    let text = trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString()))
+                                    let text = nagramPanguOutgoingText(trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString())))
                                     let entities = generateTextEntities(text.string, enabledTypes: .all, currentEntities: generateChatInputTextEntities(text))
                                     if !entities.isEmpty {
                                         attributes.append(TextEntitiesMessageAttribute(entities: entities))
@@ -977,7 +986,7 @@ public func legacyAssetPickerEnqueueMessages(
                                 attributes.append(MediaSpoilerMessageAttribute())
                             }
                             
-                            let text = trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString()))
+                            let text = nagramPanguOutgoingText(trimChatInputText(convertMarkdownToAttributes(caption ?? NSAttributedString())))
                             let entities = generateTextEntities(text.string, enabledTypes: .all, currentEntities: generateChatInputTextEntities(text))
                             if !entities.isEmpty {
                                 attributes.append(TextEntitiesMessageAttribute(entities: entities))

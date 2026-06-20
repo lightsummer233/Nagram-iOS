@@ -124,6 +124,15 @@ public final class NagramSettings {
     /// 回车键发送消息
     @NagramDefault("nagram.sendWithReturnKey", false)
     public var sendWithReturnKey: Bool
+    /// 发送时自动插入中英文空格
+    @NagramDefault("nagram.enablePanguOnSending", false)
+    public var enablePanguOnSending: Bool
+    /// 编辑时自动插入中英文空格
+    @NagramDefault("nagram.enablePanguOnEditing", false)
+    public var enablePanguOnEditing: Bool
+    /// 接收展示时自动插入中英文空格
+    @NagramDefault("nagram.enablePanguOnReceiving", false)
+    public var enablePanguOnReceiving: Bool
     /// 更宽的频道帖子
     @NagramDefault("nagram.wideChannelPosts", false)
     public var wideChannelPosts: Bool

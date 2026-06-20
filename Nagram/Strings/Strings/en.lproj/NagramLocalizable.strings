@@ -6,6 +6,7 @@
 "Nagram.Section.Camera" = "Camera";
 "Nagram.Section.Camera.Footer" = "Camera entry and live preview in the attachment menu.";
 "Nagram.Section.MessageDisplay" = "Message Display";
+"Nagram.Section.Pangu" = "Pangu Spacing";
 "Nagram.Section.MessageMenu" = "Message Menu";
 "Nagram.Section.Sending" = "Sending";
 "Nagram.Section.Gesture" = "Gestures";
@@ -13,9 +14,13 @@
 "Nagram.Section.Privacy" = "Privacy";
 
 "Nagram.SecondsInMessages" = "Show Seconds in Timestamps";
+"Nagram.PanguOnReceiving" = "Enable Pangu on Receiving";
+"Nagram.PanguInfo" = "Paranoid text spacing for good readability, automatically inserting spaces between CJK, half-width English, digits, and symbols.";
 "Nagram.HideReactions" = "Hide Reactions";
 "Nagram.DisableSendAsButton" = "Hide \"Send as Channel\" Button";
 "Nagram.SendWithReturnKey" = "Send with Return Key";
+"Nagram.PanguOnSending" = "Enable Pangu on Sending";
+"Nagram.PanguOnEditing" = "Enable Pangu on Editing";
 "Nagram.HideRecordingButton" = "Hide Voice Recording Button";
 "Nagram.UploadSpeedBoost" = "Upload Boost";
 "Nagram.Section.Network" = "Network Boost";
