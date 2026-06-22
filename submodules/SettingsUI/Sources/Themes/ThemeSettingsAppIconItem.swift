@@ -34,6 +34,19 @@ private func generateBorderImage(theme: PresentationTheme, bordered: Bool, selec
     })?.stretchableImage(withLeftCapWidth: 15, topCapHeight: 15)
 }
 
+// MARK: NAGRAM
+private func loadThemeSettingsAppIconImage(_ icon: PresentationAppIcon) -> UIImage? {
+    if icon.name == "Nagram" {
+        for imageName in ["Nagram@3x", "Nagram@2x", "NagramIpad@2x", "NagramLargeIpad@2x", "NagramIpad"] {
+            if let path = getAppBundle().path(forResource: imageName, ofType: "png"), let image = UIImage(contentsOfFile: path) {
+                return image
+            }
+        }
+        return UIImage(named: "BlueIcon", in: getAppBundle(), compatibleWith: nil)
+    }
+    return UIImage(named: icon.imageName, in: getAppBundle(), compatibleWith: nil)
+}
+
 class ThemeSettingsAppIconItem: ListViewItem, ItemListItem {
     var sectionId: ItemListSectionId
     
@@ -370,7 +383,7 @@ class ThemeSettingsAppIconItemNode: ListViewItemNode, ItemListItemNode {
                         }
                         imageNode.lockNode.image = strongSelf.lockImage
                         
-                        if let image = UIImage(named: icon.imageName, in: getAppBundle(), compatibleWith: nil) {
+                        if let image = loadThemeSettingsAppIconImage(icon) {
                             let selected = icon.name == item.currentIconName
 
                             var name = "Icon"
