@@ -1300,6 +1300,57 @@ public final class ChatListNode: ListViewImpl {
         }
     }
     
+    // MARK: NAGRAM
+    private static func isTimePositionEntry(_ entry: ChatListNodeEntry) -> Bool {
+        switch entry {
+        case .PeerEntry:
+            return true
+        case let .GroupReferenceEntry(groupReferenceEntry):
+            return !groupReferenceEntry.hiddenByDefault || groupReferenceEntry.revealed
+        default:
+            return false
+        }
+    }
+    
+    private func isAtTimeSortedTop() -> Bool? {
+        guard case .chatList = self.mode else {
+            return nil
+        }
+        guard let chatListView = self.chatListView else {
+            return nil
+        }
+        if chatListView.originalList.hasLater {
+            return false
+        }
+        
+        let topEntryId = chatListView.filteredEntries.reversed().first(where: ChatListNode.isTimePositionEntry)?.stableId
+        guard let topEntryId else {
+            return true
+        }
+        guard let visibleRange = self.displayedItemRange.visibleRange else {
+            return nil
+        }
+        
+        let entryCount = chatListView.filteredEntries.count
+        guard visibleRange.firstIndex <= visibleRange.lastIndex else {
+            return nil
+        }
+        for i in visibleRange.firstIndex ... visibleRange.lastIndex {
+            if i < 0 || i >= entryCount {
+                continue
+            }
+            let entry = chatListView.filteredEntries[entryCount - i - 1]
+            if ChatListNode.isTimePositionEntry(entry) {
+                if i == visibleRange.firstIndex && !visibleRange.firstIndexFullyVisible {
+                    return false
+                }
+                return entry.stableId == topEntryId
+            }
+        }
+        
+        return nil
+    }
+    
     public var contentOffsetChanged: ((ListViewVisibleContentOffset) -> Void)?
     public private(set) var pinnedScrollFraction: CGFloat = 0.0
     public var pinnedHeaderDisplayFractionUpdated: ((ContainedViewLayoutTransition) -> Void)?
@@ -3072,7 +3123,7 @@ public final class ChatListNode: ListViewImpl {
             let atTop: Bool
             switch offset {
             case .none, .unknown:
-                atTop = false
+                atTop = strongSelf.isAtTimeSortedTop() ?? strongSelf.scrolledAtTopValue // MARK: NAGRAM
             case let .known(value):
                 atTop = value <= -strongSelf.tempTopInset
             }
